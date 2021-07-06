@@ -16,6 +16,14 @@ From the standalone folder
 
 
 ```shell
+# Get matlab runtime
+docker pull tercen/mcr:R2020b
+
+docker run --rm -ti \
+      -v $PWD/standalone/:/mcr/exe/ \
+      tercen/mcr:R2020b \
+      bash
+      
 # Run
 docker run --rm -ti \
       -v $PWD/standalone/:/mcr/exe/ \
@@ -32,7 +40,7 @@ docker run --rm -ti \
 # Compilation using docker image, TODO 
 docker run -it --rm \
       -v $PWD:/pamsoft_grid \
-      mathworks/matlab:r2020b
+      mathworks/matlab:r2021a
       bash
    
 ```
