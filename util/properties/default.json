@@ -1,4 +1,6 @@
 {
+    "verbose":"no",
+
 	"_prpContrast":"Preprocessing, contrast",
 	"_prpContrastOptions":"co-equalize, equalize, linear",
 	"prpContrast":"co-equalize",
@@ -51,6 +53,7 @@
 	"qntOutlierMethod":"iqrBased",
 	"qntOutlierMeasure":1.75,
 	"_qntShowPamGridViewerOptions":"No,Show, Wait for Close, Show and Continue",
-	"qntShowPamGridViewer":"No"
+	"qntShowPamGridViewer":"No",
+	"segMethod":"Edge"
 }
 

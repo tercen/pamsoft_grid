@@ -1,0 +1,64 @@
+{
+	"general":{
+		"paramfile": {
+			"field":"[Error $1] No paramfile was specified.",
+			"exist":"[Error $1] The specified param filepath does not exist ($2).",
+			"parse":"[Error $1] Error parsing configuration file $2."
+		},
+
+		"imageslistfile": {
+			"field":"[Error $1] No imageslistfile file was specified.",
+			"read":"[Error $1]  Error reading the list of image paths in $2."
+		},
+
+		"arraylayout": {
+			"field":"[Error $1] No arraylayout file was specified.",
+			"exist":"[Error $1] The specified arraylayout filepath does not exist ($2).",
+			"parse":"[Error $1] Error reading file $2."
+		},
+
+		"no_outputfile":"[Error $1] Field outputfile has not been set.",
+		"no_savefield":"[Error $1] Cannot save field $2 as it has not been set.",
+
+
+		"gridoutput": {
+			"field":"[Error $1] No qntGriddingOutput field was specified.",
+			"exist":"[Error $1] The specified qntGriddingOutput filepath does not exist ($2).",
+			"parse":"[Error $1] Error reading file $2."
+		}
+
+		
+	},
+
+	"grid":{
+		"preprocess":{
+			"read_image":"[Error $1] Error while attempting to read $1.",
+			"exp_time_combo":"[Error $1] Invalid combination of input images: there are multiple images with both equal cycle and exposure time",
+			"col_unset":"[Error $1] grdCol property has not been set.",
+			"row_unset":"[Error $1] grdRow property has not been set.",
+			"no_exp_cycle":"[Error $1] Specified Exposure_Cycle ($2_$3) is not present in the list of images",
+			"wrong_useimage":"[Error $1] Invalid value for pamgrid parameter useImage ($3).",
+			"pp_fields":"[Error $1] Possible failure to preprocess images. No image_grid_preproc or rsf fields ahve been set."
+		},
+
+		"no_imagegrid_field":"[Error $1] No imagegrid field in the params structures.",
+		"no_row":"[Error $1] Parameter grdRow has not been set", 
+		"no_col":"[Error $1] Parameter grdCol has not been set",
+		"rowcol_vector":"[Error $1] Parameters grdCol and grdRow must be vectors.",
+		"rowcol_length":"[Error $1] grdCol and grdRow must have the same length",
+		"xyoff_length":"[Error $1] grdXOffset and grdYOffset must have the same length as grdCol and grdRow",
+		"xyfix_length":"[Error $1] grdXFixedPosition and grdYFixedPosition must have the same length as grdCol and grdRow",
+		"no_spotpitch": "[Error $1] Parameter grdSpotPitch has not been set.",
+		"no_spotsize": "[Error $1] Parameter grdSpotSize has not been set.",
+		"unknown_method": "[Error $1] Uknown value set in grdMethod ($2)."
+	},
+
+	"quantification":{
+		"segmentation":{
+			"size":"The number of x coordinates must be equal to the number of y coordinates"
+		}
+	}
+
+
+
+}

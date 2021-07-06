@@ -1,14 +1,3 @@
-
-# Running the code
-Compilation command
-mcc -m pamsoft_grid.m -d /path/to/standalone -o pamsoft_grid -R -nodisplay
-
-
-From the standalone folder
-./../pamsoft_grid.sh  --mode=grid --param-file=input_test_1.json --array-layout-file=631158404_631158405_631158406 86312 Array Layout.txt --images-list-file=image_list_test_1.txt --output-fileoutput_test_1.txt
-
-
-
 # intro
 
 https://pamgene.com/technology/

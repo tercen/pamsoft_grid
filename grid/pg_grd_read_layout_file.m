@@ -1,4 +1,4 @@
-function [g, extraHeaders, extraColumns] = fromFile(g, fName, gridRefMarker)
+function [params, exitCode] = pg_grd_read_layout_file(params, gridRefMarker)
 % array.fromFile.
 % [oArrayOut, extraHeaders, extraColumns] = fromFile(oArray, filename, <gridRefMarker>)
 % read array object form file
@@ -70,13 +70,35 @@ function [g, extraHeaders, extraColumns] = fromFile(g, fName, gridRefMarker)
 %     '#ref'
 %     'SPOT2'
 % See also array/array, array/gridFind
-if nargin == 2
+exitCode = 0;
+
+
+
+if nargin == 1
     gridRefMarker = [];
 end
 
-fid = fopen(fName, 'rt');
+if ~isfield(params, 'arraylayoutfile')
+    exitCode = -31;
+    pg_error_message('general.arraylayout.field', exitCode);
+    return;
+end
+
+
+if ~exist( params.arraylayoutfile, 'file' )
+    exitCode =-32;
+    pg_error_message('general.arraylayout.exist', exitCode, params.arraylayoutfile );
+    return;
+end
+
+
+
+fid = fopen(params.arraylayoutfile, 'rt');
 if fid == -1
-    error(['Could not open: ', fName]);
+%     error(['Could not open: ', fName]);
+    exitCode =-33;
+    pg_error_message('general.arraylayout.parse', exitCode, params.arraylayoutfile );
+    return;
 end
 
 % define columnheader keywords as the fields of KeyWord struct.
@@ -90,8 +112,8 @@ KeyWord.xFixedPosition = false;
 KeyWord.yFixedPosition = false;
 KeyWord.IsReference = false;
 
-fLine = strread(fgetl(fid), '%s', 'delimiter', '\t')';
-fLine = deblank(fLine);
+fLine  = strread(fgetl(fid), '%s', 'delimiter', '\t')';
+fLine  = deblank(fLine);
 labels = fieldnames(KeyWord);
 %identfy columns nrs corresponding to keyword.
 % error return when any of the keywords is not matched exactly one time:
@@ -158,6 +180,7 @@ fclose(fid);
 % if ~Match.IsReference try to get refs from the gridRefMarker
 if ~isempty(gridRefMarker) && ~Match.IsReference
     isreference = strncmp(gridRefMarker, ID, length(gridRefMarker));
+    
     if ~any(isreference)
         % if no grdRefMarker set all true;
         isreference = true(size(ID));
@@ -169,31 +192,42 @@ else
     isreference = logical(isreference);
 end
 
-g.row = row';
-g.col = col';
-g.isreference = isreference';
-g.ID = ID';
+% g.row = row';
+% g.col = col';
+% g.isreference = isreference';
+% g.ID = ID';
 
 if Match.Xoff
-    g.xOffset = xOff';
+    xOffset = xOff';
 else
-    g.xOffset = zeros(size(row));
+    xOffset = zeros(size(row));
 end
 
 if Match.Yoff
-    g.yOffset = yOff';
+    yOffset = yOff';
 else
-    g.yOffset = zeros(size(row));
+    yOffset = zeros(size(row));
 end
 
 if Match.xFixedPosition && Match.yFixedPosition
-    g.xFixedPosition = xFxd';
-    g.yFixedPosition = yFxd';
+    xFixedPosition = xFxd';
+    yFixedPosition = yFxd';
 else
-    g.xFixedPosition = zeros(size(row'));
-    g.yFixedPosition = zeros(size(row'));
+    xFixedPosition = zeros(size(row'));
+    yFixedPosition = zeros(size(row'));
 end
 
+% isreference
+params.qntSpotID = ID';
+params.grdCol    = col';
+params.grdRow    = row';
+params.grdIsReference = isreference';
+params.grdXOffset   = xOffset;
+params.grdYOffset   = yOffset;
+params.grdXFixedPosition = xFixedPosition;
+params.grdYFixedPosition = yFixedPosition;
     
 
 
+
+end

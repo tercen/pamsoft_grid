@@ -33,5 +33,5 @@ x(x<1) = 1;
 y(y<1) = 1;
 x(x>size(I,1)) = size(I,1);
 y(y>size(I,2)) = size(I,2);
-
+disp('.');
 % x
