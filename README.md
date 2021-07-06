@@ -1,3 +1,51 @@
+
+# Running the code
+
+Compilation command
+
+```shell
+mcc -m pamsoft_grid.m -d /path/to/standalone -o pamsoft_grid -R -nodisplay
+
+```
+ 
+From the standalone folder
+```shell
+./../pamsoft_grid.sh  --mode=grid --param-file=input_test_1.json --array-layout-file=631158404_631158405_631158406 86312 Array Layout.txt --images-list-file=image_list_test_1.txt --output-fileoutput_test_1.txt
+```
+
+
+
+```shell
+# Get matlab runtime
+docker pull tercen/mcr:R2020b
+
+docker run --rm -ti \
+      -v $PWD/standalone/:/mcr/exe/ \
+      tercen/mcr:R2020b \
+      bash
+      
+# Run
+docker run --rm -ti \
+      -v $PWD/standalone/:/mcr/exe/ \
+      tercen/mcr:R2020b \
+      /mcr/exe/pamsoft_grid \
+      --mode=grid \
+      --param-file=/mcr/exe/default.json \
+      --images-list-file=xxx \
+      --array-layout-file=xxx \
+      --output-file=output_test_1.txt
+```
+
+```shell
+# Compilation using docker image, TODO 
+docker run -it --rm \
+      -v $PWD:/pamsoft_grid \
+      mathworks/matlab:r2021a
+      bash
+   
+```
+
+
 # intro
 
 https://pamgene.com/technology/
@@ -36,22 +84,29 @@ What needs to be specified ?
 # Processing step
 
 image pre-processing
+
 griding
+
+
+
 segmentation
+
 quantification
+
 
 # Instrument specific parameters
 
-gridSpotPitch   17.0
+gridSpotPitch   21.5
 qntSaturationLimit   4095
 
 # Array layout
 
 Row
 Col
-ID (is it required ?)
 Xoff
 Yoff
+
+reference spot have negative row and col
 
 # Griding
 
