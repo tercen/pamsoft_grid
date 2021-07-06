@@ -79,15 +79,15 @@ if nargin == 1
 end
 
 if ~isfield(params, 'arraylayoutfile')
-    exitCode = -31;
-    pg_error_message('general.arraylayout.field', exitCode);
+    exitCode = -8;
+    pg_error_message( exitCode, params.paramfile );
     return;
 end
 
 
 if ~exist( params.arraylayoutfile, 'file' )
-    exitCode =-32;
-    pg_error_message('general.arraylayout.exist', exitCode, params.arraylayoutfile );
+    exitCode =-9;
+    pg_error_message( exitCode, params.arraylayoutfile );
     return;
 end
 
@@ -96,8 +96,8 @@ end
 fid = fopen(params.arraylayoutfile, 'rt');
 if fid == -1
 %     error(['Could not open: ', fName]);
-    exitCode =-33;
-    pg_error_message('general.arraylayout.parse', exitCode, params.arraylayoutfile );
+    exitCode =-10;
+    pg_error_message(exitCode, params.arraylayoutfile );
     return;
 end
 

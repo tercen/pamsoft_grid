@@ -1,0 +1,3 @@
+[submodule "test/evolve_images"]
+	path = test/evolve_images
+	url = https://github.com/tercen/evolve_images.git

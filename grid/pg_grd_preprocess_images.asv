@@ -100,7 +100,7 @@ switch imageUse
         
         if ~any(bEC)
             exitCode = -12;
-            pg_error_message(exitCode, e, c);
+            pg_error_message('grid.preprocess.no_exp_cycle', exitCode, e, c);
             return
         end
         
@@ -112,8 +112,8 @@ switch imageUse
         
         params.grdImageUsed = bEC;
     otherwise
-        exitCode = -13;
-        pg_error_message(exitCode, 'grdImageUse', params.grdUseImage);
+        exitCode = -1006;
+        pg_error_message('grid.preprocess.wrong_useimage', exitCode, imageUse);
         return
 end
 

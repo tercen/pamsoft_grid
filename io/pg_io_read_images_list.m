@@ -1,36 +1,35 @@
 function [params, exitCode] = pg_io_read_images_list(params)
 exitCode = 0;
 
-    if ~isfield( params, 'imageslistfile' )
-        exitCode = -21;
-        pg_error_message('general.imagelist.exist',exitCode);
+    if ~isfield( params, 'imageslist' )
+        exitCode = -3;
+        pg_error_message(exitCode, params.paramfile);
         return
-    end
-
-    try
-        imagesList = readlines(params.imageslistfile, 'WhitespaceRule', 'trim', ...
-            'EmptyLineRule', 'skip');
-        params.imageslist = cellstr(imagesList);
-    catch
-        pg_error_message('general.imagelist.read', exitCode,  params.imageslistfile );
-        exitCode = -22;
     end
 
     imFiles       = params.imageslist;
 
+    if ~iscell(imFiles) || isempty(imFiles)
+        exitCode = -4;
+        pg_error_message(exitCode);
+        return
+    end
+
 
     % Get information from an example image
-    sInfo    = imfinfo(imFiles{1});
+    try
+        sInfo    = imfinfo(imFiles{1});
+    catch err
+        exitCode = -6;
+        pg_error_message(exitCode, imFiles{1}, err.message);
+        return;
+    end
 
     % Get image type
     imType   = class(imread(imFiles{1}));
     IMG_SIZE = [sInfo.Height, sInfo.Width];
     nImgs    = length(imFiles);
     I 	     = zeros( IMG_SIZE(1), IMG_SIZE(2), nImgs, imType );
-
-    % @TODO The imge reading and sorting code will likely be used before the
-    % segmentation and quantification steps and thus are expected to be moved
-    % out of the preprocess function
 
     % load the images, read cycle and exposure time information
     expTime = zeros(1,nImgs);
@@ -40,8 +39,8 @@ exitCode = 0;
         try
             I(:,:,i)   = imread(imFiles{i});
         catch
-            exitCode = -1001;
-            pg_error_message('grid.preprocess.read_image', exitCode, imFiles{i});
+            exitCode = -5;
+            pg_error_message( exitCode, imFiles{i});
             return
         end
 
@@ -56,18 +55,13 @@ exitCode = 0;
         expTime(i) = imgInfo{1};
         cycles(i)  = imgInfo{2};
 
-        %     catch
-        %         le =  lasterror;
-        %         error(['Error while reading ', imFiles{i}, ': ',le.message ]);
-        %     end
     end
 
 
 
     if nImgs > 0 && size(unique([expTime', cycles'],'rows'),1) ~= length(expTime)
-        %     error('Invalid combination of input images to PamGrid: there are multiple images with both equal cycle and exposure time')
-        exitCode = -1002;
-        pg_error_message('grid.preprocess.exp_time_combo', exitCode, imFiles{i});
+        exitCode = -7;
+        pg_error_message(exitCode);
         return
     end
 
@@ -93,9 +87,9 @@ exitCode = 0;
     end
 
     
-    params.images = I;
-    params.expTime = expTime;
-    params.cycles = cycles;
+    params.images       = I;
+    params.expTime      = expTime;
+    params.cycles       = cycles;
     params.grdSortOrder = iSort;
-    params.imageInfo = sInfo;
+    params.imageInfo    = sInfo;
 end

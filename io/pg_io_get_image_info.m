@@ -4,11 +4,10 @@ function [C, exitCode] = pg_io_get_image_info(imgPath, info)
     try
         sInfo = pg_imtifinfo(imgPath);
     catch tifInfoException
-        [~,name,ext] = fileparts(imgPath);
-%         errstr = ['Error reading info from: ', name,ext,': ',tifInfoException.message];
-%                 error(errstr);
-        exitCode = -41;
-        pg_error_message('preprocess.image_read', exitCode, name, tifInfoException.message);
+        [~,name,~] = fileparts(imgPath);
+
+        exitCode = -6;
+        pg_error_message(exitCode, name, tifInfoException.message);
         
     end
 

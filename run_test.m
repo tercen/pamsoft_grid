@@ -1,1 +1,4 @@
-pamsoft_grid('--mode=quantification --param-file=/media/thiago/EXTRALINUX/Upwork/code/evolve_images/data1/input_test_1.json --array-layout-file=/media/thiago/EXTRALINUX/Upwork/code/evolve_images/data1/631158404_631158405_631158406 86312 Array Layout.txt --images-list-file=/media/thiago/EXTRALINUX/Upwork/code/evolve_images/data1/image_list_test_1.txt --output-file=/media/thiago/EXTRALINUX/Upwork/code/evolve_images/data1/output_test_1.json')
+PGDIR  = which('pamsoft_grid');
+sepIdx = strfind(PGDIR, filesep);
+PGDIR = PGDIR(1:sepIdx(end));
+pamsoft_grid(sprintf('--param-file=%s/test/input_params_local.json', PGDIR))

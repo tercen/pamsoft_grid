@@ -16,17 +16,18 @@ function pamsoft_grid(arglist)
 
 
 disp('');
-params = parse_arguments(arglist);
+[params, exitCode] = parse_arguments(arglist);
 
-% Populate with default values
-[params, exitCode] = pg_read_params_json(params, 'default.json');
-params.grdPrivate  = [];
 if exitCode == 0
-    % Overwrite specific fields with user-defined values
-    [params, exitCode] = pg_read_params_json(params,  params.paramfile);
+    % Populate with default values
+    [params, exitCode] = pg_io_read_params_json(params, 'default.json');
+    params.grdPrivate  = [];
 end
 
-
+if exitCode == 0
+    % Overwrite specific fields with user-defined values
+    [params, exitCode] = pg_io_read_params_json(params,  params.paramfile);
+end
 
 
 if exitCode == 0
@@ -35,9 +36,8 @@ end
 
 
 
-
 % First mode of execution: image preprocessing & gridding
-if strcmpi(params.mode, 'grid') && exitCode == 0
+if exitCode == 0 && strcmpi(params.pgMode, 'grid') 
     % Read grid layout information
     [params, exitCode] = pg_grd_read_layout_file(params, '#');
     
@@ -52,33 +52,21 @@ if strcmpi(params.mode, 'grid') && exitCode == 0
     
    
     if exitCode == 0
-%         params
-        exitCode = pg_io_save_params(params, { 'grdRow', 'grdCol', ...
+        exitCode = pg_io_save_params(params, {'qntSpotID', 'grdIsReference', ...
+                        'grdRow', 'grdCol', ...
                         'grdXOffset', 'grdYOffset', ...
-                        'grdXFixedPosition', 'grdYFixedPosition', ...
-                        'qntSpotID', 'grdIsReference', ...
-                        'grdRot', 'grdSortOrder', 'grdImageUsed'} );
+                        'grdXFixedPosition', 'grdYFixedPosition'} );
     end
+
     
-    
-    % @FIXME 
-    % Quantification uses some information which cannot be saved in a
-    % single text file, at least not easily.
-    %
-    % For the time being, I am saving the params structure, but this needs
-    % to be discussed
-%     save(strrep(params.outputfile, '.txt','.mat'), 'params');
+
 end
 
 
-if strcmpi(params.mode, 'quantification')
-    % See @FIXME above
-    % The load command will be replaced by the function below which should
-    % properly read the information into the params structure, likely from
-    % a text file
-    %     [params, exitCode] = pg_io_read_in_gridding_results(params);
-%     load( strrep(params.outputfile, '.txt','.mat') );
-    
+if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
+
+    % @FIXME change this to a function which specifically reads the
+    % gridding output
     [params, exitCode] = pg_read_params_json(params,  params.griddingOutput);
 %     params
     if exitCode == 0
@@ -104,16 +92,28 @@ end % END of function pamsoft_grid
 
 
 
-function params = parse_arguments(argline)
-    % Split the multiple arguments
-    % Arguments are being validated in the bash script, so we can assume
-    % the correct number of args, as well as their formatting
+function [params, exitCode] = parse_arguments(argline)
+    exitCode = 0;
+    params   = struct;
+    if isempty(argline)
+        exitCode = -1000;
+        pg_error_message(exitCode);
+        return
+    end
+    
     argStrIdx = strfind(argline, '--');
+
+    if isempty(argStrIdx)
+        exitCode = -1000;
+        pg_error_message(exitCode);
+        return
+    end
+
+    % @TODO Create regex validation of the parameter passed to ensure the
+    % code below works with the expected format
     
     nArgs     = length(argStrIdx);
 
-    params = struct;
-    
     for i = 1:nArgs-1
         arg = argline(argStrIdx(i)+2:argStrIdx(i+1)-1);
         arg = strrep(arg, '-', '');

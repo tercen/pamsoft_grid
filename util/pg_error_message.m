@@ -1,6 +1,4 @@
-function pg_error_message(errorCodeStr, varargin)
-    %TODO create error code files
-    % Likely a JSON file containing the messages
+function pg_error_message(errorCode, varargin)
     persistent errorCodeStruct;
     
     if isempty(errorCodeStruct)
@@ -10,11 +8,21 @@ function pg_error_message(errorCodeStr, varargin)
         fclose(fid);
         
         errorCodeStruct = jsondecode(strDef);
-        errorCodes      = fieldnames(errorCodeStruct);
-        for k = 1:length(errorCodes)
-            disp(errorCodes{k});
-        end
     end
 
+
+    errorCode = strrep(sprintf('x%d', errorCode), '-', '_');
+
+    
+    if isfield(errorCodeStruct, errorCode)
+        errMsg = errorCodeStruct.(errorCode);
+
+        pIdx = 1;
+        for i = 1:length(varargin)
+            errMsg = strrep(errMsg, sprintf('$%d', pIdx), varargin{i});
+            pIdx = pIdx + 1;
+        end
+        fprintf('%s\n', errMsg);
+    end
     
 end

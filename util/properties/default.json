@@ -60,6 +60,11 @@
 	"segNFilterDisk":0,
 	"segEdgeSensitivity":[0, 0.005],
 	"segMinEdgePixels":6,
-	"segBgOffset":0.45
+	"segBgOffset":0.45,
+
+	 "pgMode":"grid",
+    	 "arraylayoutfile":"",
+	 "outputfile":"",
+  	 "imageslist":[]  
 }
 

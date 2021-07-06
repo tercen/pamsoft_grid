@@ -10,6 +10,7 @@ I(I >= satLimit) = nan;
 J = nanmean(I)';
 bNan = isnan(J);% exclude any fully saturated images.
 if all(bNan)
+    
     error('All images in the series are fully saturated')
 end
 beta = [ones(size(T(~bNan))), T(~bNan)]\J(~bNan);
