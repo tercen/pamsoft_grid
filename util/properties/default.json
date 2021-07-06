@@ -11,7 +11,7 @@
 	"_prpResize":"Preprocessing, size of preprocessed image",
 	"prpResize":[256,256],
 	"_prpPreprocessVars":"The following 4 variables were hardcoded in the Preprocess COM object",
-    "prpNCircle":-1,
+        "prpNCircle":-1,
 
 	"grdRow":[],
 	"grdCol":[],
@@ -54,6 +54,12 @@
 	"qntOutlierMeasure":1.75,
 	"_qntShowPamGridViewerOptions":"No,Show, Wait for Close, Show and Continue",
 	"qntShowPamGridViewer":"No",
-	"segMethod":"Edge"
+
+	"segMethod":"Edge",
+	"segAreaSize":1,
+	"segNFilterDisk":0,
+	"segEdgeSensitivity":[0, 0.005],
+	"segMinEdgePixels":6,
+	"segBgOffset":0.45
 }
 

@@ -1,4 +1,4 @@
-function exitCode = pg_qnt_segment(params, Iseg, cx, cy, bFxd, rotation)
+function exitCode = pg_qnt_segment(params, I, cx, cy, bFxd, rotation)
 % function sOut = segment(s, I, cx, cy, bFxd, rotation)
 % s = segment(s, I, cx, cy, rotation)
 exitCode = 0;
@@ -12,6 +12,12 @@ end
 % if min(size(cx)) < 2
 %     error('The grid must include at least 2 rows and two columns, use dummy spots if necessary.');
 % end
+
+
+% From analyzeImages.m when creating the preprocess object
+% 'nFilterDisk'       , prpSmallDisk * grdSpotPitch
+params.segNFilterDisk = params.prpSmallDisk * params.grdSpotPitch;
+
 
 if isempty(params.grdSpotPitch)
 %     error('Parameter ''spotPitch'' has not been defined');
@@ -37,7 +43,7 @@ switch params.segMethod
     case 'Edge'
         sOut = repmat(s, length(cx(:)),1);
         if any(~bFxd)
-            sOut(~bFxd) = segmentByEdge(s, I, cx(~bFxd), cy(~bFxd), rotation);
+            sOut(~bFxd) = pg_qnt_S(s, I, cx(~bFxd), cy(~bFxd), rotation);
         end
         if any(bFxd)
             sOut(bFxd)  = segmentByEdgeFxdMp(s, I, cx(bFxd), cy(bFxd), rotation); 

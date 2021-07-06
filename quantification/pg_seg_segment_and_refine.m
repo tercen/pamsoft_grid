@@ -59,7 +59,7 @@ while delta > maxDelta
     % seems not be an use case
     ISeg = params.images(:,:, params.grdImageUsed );
     
-    pg_qnt_segment(params, Iseg, x, y, bFixedSpot, params.grdRot);
+    pg_seg_segment(params, Iseg, x, y, bFixedSpot, params.grdRot);
     
     pgr.oSegmentation = set(pgr.oSegmentation, 'spotPitch', spotPitch);
     oS = segment(pgr.oSegmentation, I, x, y,bFixedSpot,rot);

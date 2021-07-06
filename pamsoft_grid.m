@@ -83,7 +83,7 @@ if strcmpi(params.mode, 'quantification')
 %     params
     if exitCode == 0
 %         params
-        pg_qnt_segment_image(params);
+        pg_seg_segment_image(params);
         
     end
 %         pg_preprocess_images(params);

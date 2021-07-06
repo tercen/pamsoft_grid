@@ -1,4 +1,4 @@
-function [params, exitCode] = pg_qnt_segment_image(params)
+function [params, exitCode] = pg_seg_segment_image(params)
 
 exitCode        = 0;
 maxSubIter      = 2; % Max iterations for subs vs refs refinement 
@@ -58,10 +58,10 @@ end
 if any(~isRef)
     % segment as separate reference array (different quality settings)
 %     [qRefs,~, mpRefs] = segmentAndRefine(pgrRef, I, xFxd(isRef), yFxd(isRef), params.grd, true);
-    [qRefs,~, mpRefs] = pg_qnt_segment_and_refine(paramsRef, true);
+    [qRefs,~, mpRefs] = pg_seg_segment_and_refine(paramsRef, true);
 else
 %     [qRefs,~, mpRefs] = segmentAndRefine(pgrRef, I, xFxd(isRef), yFxd(isRef), rot, false);
-    [qRefs,~, mpRefs] = pg_qnt_segment_and_refine(paramsRef, false);
+    [qRefs,~, mpRefs] = pg_seg_segment_and_refine(paramsRef, false);
 end
 
 
