@@ -13,10 +13,7 @@ From the standalone folder
 ./../pamsoft_grid.sh  --mode=grid --param-file=input_test_1.json --array-layout-file=631158404_631158405_631158406 86312 Array Layout.txt --images-list-file=image_list_test_1.txt --output-fileoutput_test_1.txt
 ```
 
-```shell
-# Build matlab runtime image
-docker build -t tercen/mcr:R2020b docker/runtime_R2020b
-```
+
 
 ```shell
 # Run
