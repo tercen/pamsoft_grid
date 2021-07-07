@@ -15,6 +15,18 @@ From the standalone folder
 
 
 
+```
+
+```shell
+# Compilation using docker image, TODO 
+docker run -it --rm \
+      -v $PWD:/pamsoft_grid \
+      mathworks/matlab:r2021a
+      bash
+   
+```
+
+
 ```shell
 # Get matlab runtime
 docker pull tercen/mcr:R2020b

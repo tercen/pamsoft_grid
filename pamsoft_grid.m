@@ -16,116 +16,104 @@ function pamsoft_grid(arglist)
 
 
 disp('');
-params = parse_arguments(arglist);
+[params, exitCode] = parse_arguments(arglist);
 
-%TODO create default.json with all default options and get them from there
-% Right now, options are being used as strings, saved as numbers and mapped
-% when needed
-[params, exitCode] = pg_read_params_json(params);
+if exitCode == 0
+    % Populate with default values
+    [params, exitCode] = pg_io_read_params_json(params, 'default.json');
+    params.grdPrivate  = [];
+end
 
-if exitCode < 0
-       disp('Error reading:')
-       disp(params.paramfile);
-     
-       disp(exitCode);
-       return
+if exitCode == 0
+    % Overwrite specific fields with user-defined values
+    [params, exitCode] = pg_io_read_params_json(params,  params.paramfile);
 end
 
 
-% Read in the image list
-[params, exitCode] = pg_read_images_list(params);
+if exitCode == 0
+    [params, exitCode] = pg_io_read_images_list(params);
+end
 
-%TODO check if reading the images ran well
 
-% pg_image_analysis/PamSoft_Grid/com/grdFromFile.m
-% 
-% https://github.com/tercen/pg_image_analysis/blob/1b3e191210987687c4ae5fa6d623499acef99f1c/PamSoft_Grid/com/grdFromFile.m
+
 % First mode of execution: image preprocessing & gridding
-if strcmpi(params.mode, 'grid')
+if exitCode == 0 && strcmpi(params.pgMode, 'grid') 
     % Read grid layout information
-    %TODO Still relying on COM. Double check, but likely not anymore
-    % Port all code into the grid folder
-    params = pg_grd_from_layout_file(params, '#');
+    [params, exitCode] = pg_grd_read_layout_file(params, '#');
     
-    %Preprocess image & calculate grid
-    % TODO Pass a specific image. DONE
-    pg_preprocess_images(params);
-%    
+
+    if exitCode == 0
+        [params, exitCode] = pg_grd_preprocess_images(params);
+    end
+    
+    if exitCode == 0
+        [params, exitCode] = pg_grd_gridding(params);
+    end
+    
+   
+    if exitCode == 0
+        exitCode = pg_io_save_params(params, {'qntSpotID', 'grdIsReference', ...
+                        'grdRow', 'grdCol', ...
+                        'grdXOffset', 'grdYOffset', ...
+                        'grdXFixedPosition', 'grdYFixedPosition'} );
+    end
+
     
 
 end
 
 
-if strcmpi(params.mode, 'quantification')
-    % This function depends from the outcome of grdFromFile
+if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
+
+    % @FIXME change this to a function which specifically reads the
+    % gridding output
+    [params, exitCode] = pg_read_params_json(params,  params.griddingOutput);
 %     params
-    if( pg_read_in_grid_results(params) )
+    if exitCode == 0
+%         params
+        pg_seg_segment_image(params);
+        
+    end
 %         pg_preprocess_images(params);
 %         params
 %         qt = analyzeimageseries(params.sorted_imageslist);
 %         qt
-    end
+    
 
 
 %     params
 end
 
-% qt = analyzeimageseries(names(1:18));
+
+
+fprintf('Program finished with error code %d\n', exitCode);
 
 end % END of function pamsoft_grid
 
 
-% Helper function to print error messages without cluttering the main
-% function
-% errTypes: cell containing error key words
-function print_error(errTypes)
 
-    for i = 1:length(errTypes)
-        errType = errTypes{i};
-        
-        fprintf('****** [ERROR %d] ******\n', i);
-        
-        if strcmp(errType, 'usage') == 0   
-           fprintf('Incorrect usage of pamsoft_grid function.\n\n'); 
-           fprintf('The following parameters are mandatory:\n'); 
-           fprintf('mode: [grid, quantification]\n ');
-           fprintf('param-file: [path to param file, .txt]\n ');
-           fprintf('array-layout: [path to array layout, .txt]\n ');
-           fprintf('images-list-file: [path to image list file, .json]\n ');
-           fprintf('output-file: [path to output file, .txt]\n\n ');
-           fprintf('EXAMPLE usage:\n ');
-           fprintf('pamsoft_grid --mode=grid --param-file=xxx --array-layout-file=xxx --images-list-file=xxx --output-file=xxx\n\n ');
-        end
-        
-        if strcmp(errType, 'pairs') == 0
-            fprintf('All arguments must be specified as pairs\n');
-            fprintf('E.g.: --mode=grid\n\n');
-        end
-        
-        if strcmp(errType, 'images') == 0
-            %@TODO add more meaningful error message
-            fprintf('Error reading image list.\n');
-        end
+function [params, exitCode] = parse_arguments(argline)
+    exitCode = 0;
+    params   = struct;
+    if isempty(argline)
+        exitCode = -1000;
+        pg_error_message(exitCode);
+        return
     end
     
-    if length(errTypes) > 1
-        fprintf('Multiple Errors Found\n');
-    end
-    
-    fprintf('\nABORTING pamsoft_grid execution\n');
-end
-
-
-function params = parse_arguments(argline)
-    % Split the multiple arguments
-    % Arguments are being validated in the bash script, so we can assume
-    % the correct number of args, as well as their formatting
     argStrIdx = strfind(argline, '--');
+
+    if isempty(argStrIdx)
+        exitCode = -1000;
+        pg_error_message(exitCode);
+        return
+    end
+
+    % @TODO Create regex validation of the parameter passed to ensure the
+    % code below works with the expected format
     
     nArgs     = length(argStrIdx);
 
-    params = struct;
-    
     for i = 1:nArgs-1
         arg = argline(argStrIdx(i)+2:argStrIdx(i+1)-1);
         arg = strrep(arg, '-', '');

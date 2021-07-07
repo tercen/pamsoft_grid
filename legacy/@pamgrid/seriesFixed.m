@@ -50,7 +50,7 @@ switch pgr.useImage
         error('Invalid value for pamgrid parameter ''useImage''')                                            
 end
 [x,y,rot] = globalGrid(pgr, Igrid);
-x
+
 
 switch op.action
     case 'global'
