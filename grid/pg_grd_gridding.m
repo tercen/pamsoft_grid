@@ -4,15 +4,15 @@ exitCode = 0;
 
 % [x,y,rot,params] = pg_global_grid(params, params.image_grid);
 if ~isfield(params, 'image_grid') 
-    exitCode = -61;
-    pg_error_message('grid.no_imagegrid_field', exitCode);
+    exitCode = -11;
+    pg_error_message(exitCode, 'image_grid');
     
     return;
 end
 
 if ~isfield(params, 'image_grid_preproc') || ~isfield(params, 'rsf')
-    exitCode = -62;
-    pg_error_message('grid.preproc.pp_fields', exitCode);
+    exitCode = -11;
+    pg_error_message( exitCode, 'image_grid_preproc');
     
     return;
 end
@@ -20,75 +20,31 @@ end
 
 I     = params.image_grid_preproc;
 rsf   = params.rsf;
-%[x,y,rot] = globalGrid(pgr, I)
-% create the grid image. Note that the grid image may be resized with
-% respect to the input images for efficiency. rsf is the resize factor.
-% rsf     = params.gridImageSize./size(I);
-
-% params  = pg_pp_rescale(params, rsf(1));
-
-
-% Igrid = getPrepImage(oP, imresize(I, params.gridImageSize));
-% Igrid = pg_pp_fun(params, imresize(I, params.gridImageSize));
-
-% params.image_grid_preproc;
-% params.rsf = rsf;
-
-% Igrid
-% imagesc(Igrid)
-% rsf
-% params = pg_rescale(params, rsf);
-
-
-% call the grid finding method
-% [x,y, rot, params, mx]
-
-% array.gridFind
-% function [x,y,rot,oArrayOut] = gridFind(oArray, I)
-% IN:
-% oArray, grid object as defined by oArray = array(args)
-% I, image to find the grid on.
-% OUT:
-% x [nRow, nCol] , x(i,j) is the x coordinate of spot(i,j)
-% y [nRow, nCol] , y(i,j) is the y coordinate of spot(i,j)
-% rot, optimal rotation out of the rotation axis supplied to the grid
-% object
-% oArrayOut: updated grid object, in case of array.method = 'corelation2D' the first
-% call of the gridFind function will be much slower than subsequent calls
-% with the updated object.
-% See also array/array, array/fromfile
-%
-% method: 'correlation2D', uses 2D template correlation to find the
-% location of the grid.
-
-% check if required parameters have been set
 
 
 if isempty(params.grdRow)
 %     error('Parameter ''row'' has not been set.');
-    exitCode = -63;
-    pg_error_message('grid.no_row', exitCode);
+    exitCode = -11;
+    pg_error_message(exitCode, 'grdRow');
     
     return;
 end
 if isempty(params.grdCol)
 %     error('Parameter ''col'' has not been set.');
-    exitCode = -64;
-    pg_error_message('grid.no_col', exitCode);
+    eexitCode = -11;
+    pg_error_message(exitCode, 'grdCol');
     
     return;
 end
 if size(params.grdRow,2) > 1 || size(params.grdCol,2) > 1 
-%     error('Parameters ''row'' and ''col'' must be vectors');
-    exitCode = -65;
-    pg_error_message('grid.rowcol_vector', exitCode);
+    exitCode = -14;
+    pg_error_message(exitCode);
     
     return;
 end
 if length(params.grdRow) ~= length(params.grdCol)
-%     error('Parameters ''row'' and ''col'' must be vectors of the same length');
-    exitCode = -66;
-    pg_error_message('grid.rowcol_length', exitCode);
+    exitCode = -15;
+    pg_error_message( exitCode, 'grdRow', 'grdCol' );
     
     return;
 end
@@ -98,17 +54,17 @@ end
 
 if ~isequal(size(params.grdXOffset),size(params.grdRow)) || ~isequal(size(params.grdYOffset),size(params.grdRow))
 %     error('Parameters ''xOffset'' and ''yOffset'' must be vectors of the same length as ''row'' and ''col''');
-    exitCode = -67;
-    pg_error_message('grid.xyoff_length', exitCode);
+    exitCode = -16;
+    pg_error_message(exitCode);
     
     return;
 end
 
 if ~isempty(params.grdXFixedPosition)
     if ~isequal(size(params.grdXFixedPosition),size(params.grdRow)) || ~isequal(size(params.grdYFixedPosition),size(params.grdRow))
-%         error('Parameters ''xFixedPosition'' and ''yFixedPosition'' must be vectors of the same length as ''row'' and ''col''');
-        exitCode = -68;
-        pg_error_message('grid.xyfix_length', exitCode);
+
+        exitCode = -17;
+        pg_error_message(exitCode);
         
         return;
     end
@@ -124,9 +80,6 @@ x = params.grdXFixedPosition;
 y = params.grdYFixedPosition;
 
 if ~any(~params.grdXFixedPosition) & ~any(~params.grdYFixedPosition)
-%     mx = pg_mid_point(params, params.grdXFixedPosition, params.grdYFixedPosition);
-%     rot = 0;
-    
     params.mx  =  pg_mid_point(params, params.grdXFixedPosition, params.grdYFixedPosition);
     params.rot = 0;
     return
@@ -137,16 +90,14 @@ if isempty(params.grdRoiSearch)
 end
 
 if isempty(params.grdSpotPitch)
-%     error('Parameter ''spotPitch'' has not been set.');
-    exitCode = -69;
-    pg_error_message('grid.no_spotpitch', exitCode);
+    exitCode = -11;
+    pg_error_message(exitCode, 'grdSpotPitch');
     
     return;
 end
 if isempty(params.grdSpotSize)
-%     error('Parameter ''spotSize'' has not been set.');
-    exitCode = -70;
-    pg_error_message('grid.no_spotsize', exitCode);
+    exitCode = -11;
+    pg_error_message(exitCode, 'grdSpotSize');
     
     return;
 end
@@ -183,7 +134,7 @@ switch params.grdMethod
         
       
         [mx, iRot] = pg_template_correlation(I, private.fftTemplate, params.grdRoiSearch);
-        rot = params.grdRotation(iRot);
+        rot        = params.grdRotation(iRot);
         
         % get the coordinates for set1, set2 respectivley
         bSet1 = params.grdRow > 0 & params.grdCol > 0;
@@ -205,8 +156,8 @@ switch params.grdMethod
         
     otherwise
 %         error('Unknown value for grid property ''method''');
-        exitCode = -71;
-        pg_error_message('grid.unknown_method', exitCode, params.grdMethod);
+        exitCode = -13;
+        pg_error_message(exitCode, 'grdMethod', params.grdMethod);
 
         return;
 end

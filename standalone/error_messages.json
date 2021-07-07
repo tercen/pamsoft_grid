@@ -9,6 +9,14 @@
 	"-6":"Error reading information from $1 ($2).",
 	"-7":"Invalid combination of input images: there are multiple images with both equal cycle and exposure time.",
 
+	"-8":"Parameter arralyoutfile has not been set in $1.",
+	"-9":"The specified arraylayout file ($1) does not exist.",
+"-10":"Could not open arraylayoutfile $1.",
+
+"-11":"Property $1 has not been set.",
+"-12":"Specified exposure time and cycle are not present in the list of images ($1, $2).",
+"-13":"Value $2 is invalid for param $1.",
+
 	"-1000":"Invalid command line argument passed. Expected pamsoft_grid --param-file=/path/to/paramfile.json"
 
 }
