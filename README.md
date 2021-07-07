@@ -15,6 +15,18 @@ From the standalone folder
 
 
 
+```
+
+```shell
+# Compilation using docker image, TODO 
+docker run -it --rm \
+      -v $PWD:/pamsoft_grid \
+      mathworks/matlab:r2021a
+      bash
+   
+```
+
+
 ```shell
 # Get matlab runtime
 docker pull tercen/mcr:R2020b
@@ -25,14 +37,15 @@ docker run --rm -ti \
       bash
       
 # Run
-docker run --rm  \
-      -w /mcr/exe/ \
+docker run --rm -ti \
       -v $PWD/standalone/:/mcr/exe/ \
       tercen/mcr:R2020b \
       /mcr/exe/pamsoft_grid \
-      --param-file=/mcr/exe/input_params.json
-
-
+      --mode=grid \
+      --param-file=/mcr/exe/default.json \
+      --images-list-file=xxx \
+      --array-layout-file=xxx \
+      --output-file=output_test_1.txt
 ```
 
 ```shell
