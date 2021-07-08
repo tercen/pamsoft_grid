@@ -1,5 +1,5 @@
 % function [q, spotPitch, mp] = pg_qnt_segment_and_refine(pgr, I, x, y, rot, asRef)
-function [q, spotPitch, mp] = pg_qnt_segment_and_refine(params, asRef)
+function [q, spotPitch, mp] = pg_seg_segment_and_refine(params, asRef)
 % Segments and attempts to refine the spotpitch
 % if nargin == 5
 %     asRef = false;
@@ -50,23 +50,19 @@ while delta > maxDelta
         break;
     end
     
-    % @FIXME params.image_grid will not be available, but it will be a
-    % parameter to select from the list
-    % This will need to be changed once it is defined how results from the
-    % gridding should be made available
+    I = params.image_seg;
     
-    % @FIXME If FirstLast method is used, this will not work, though this
-    % seems not be an use case
-    ISeg = params.images(:,:, params.grdImageUsed );
+    params = pg_seg_segment(params, I, x, y, bFixedSpot, params.grdRot);
     
-    pg_seg_segment(params, Iseg, x, y, bFixedSpot, params.grdRot);
+%     pgr.oSegmentation = set(pgr.oSegmentation, 'spotPitch', spotPitch);
+%     oS = segment(pgr.oSegmentation, I, x, y,bFixedSpot,rot);
     
-    pgr.oSegmentation = set(pgr.oSegmentation, 'spotPitch', spotPitch);
-    oS = segment(pgr.oSegmentation, I, x, y,bFixedSpot,rot);
     if asRef
-        flags = checkSegmentation(pgr.oRefQualityAssessment, oS);
+%         flags = pg_seg_check_segmentation(pgr.oRefQualityAssessment, oS);
+        flags = pg_seg_check_segmentation( params, params.sqcMaxPositionOffsetRefs );
     else
-        flags = checkSegmentation(pgr.oSpotQualityAssessment, oS);
+%         flags = pg_seg_check_segmentation(pgr.oSpotQualityAssessment, oS);
+        flags = pg_seg_check_segmentation( params, params.sqcMaxPositionOffset );
     end
     % replace empty spots by the default spot
     oS(flags == 2) = setAsDftSpot(oS(flags == 2));

@@ -8,7 +8,7 @@
 	"grdUseImage":"First",
     "pgMode":"grid",
     "arraylayoutfile":"/mcr/exe/test_data/631158404_631158405_631158406 86312 Array Layout.txt",
-	"outputfile":"/mcr/exe/test_params/output_test_1.txt",
+	"outputfile":"/mcr/exe/test_params/output_test_grid.txt",
     "imageslist":[  "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T10_P94_I157_A30.tif",
                       "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T20_P94_I169_A30.tif",
                       "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P32_I1_A30.tif",
@@ -25,7 +25,9 @@
                       "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P92_I145_A30.tif",
                       "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P94_I181_A30.tif",
                       "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T100_P94_I193_A30.tif",
-                      "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T200_P94_I205_A30.tif"]   
+                      "/mcr/exe/test_data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T200_P94_I205_A30.tif"],
+
+   "dbgPrintOutput":"yes"  
 
 }
 

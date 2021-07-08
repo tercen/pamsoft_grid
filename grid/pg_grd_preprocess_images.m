@@ -1,4 +1,4 @@
-function [params, exitCode] = pg_grd_preprocess_images(params)
+function [params, exitCode] = pg_grd_preprocess_images(params, rescale)
 exitCode = 0;
 
 params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
@@ -53,7 +53,7 @@ end
 uCycle = unique(cycles);
 % FROM oSpotQuantification 
 % oq.saturationLimit = 2^16 -1 ;
-sl     = str2num( params.qntSaturationLimit ); %get(pgr.oSpotQuantification, 'saturationLimit');
+sl     = params.qntSaturationLimit; %get(pgr.oSpotQuantification, 'saturationLimit');
 bLast  = cycles == uCycle(end);
 bFirst = cycles == uCycle(1);
 
@@ -121,18 +121,19 @@ end
 params.image_grid = Igrid;
 params.image_seg  = Iseg;
 
-
-rsf     = params.gridImageSize./size(Igrid);
-params  = pg_pp_rescale(params, rsf(1));
-% 
-% 
-% % Igrid = getPrepImage(oP, imresize(I, params.gridImageSize));
-Igrid = pg_pp_fun(params, imresize(Igrid, params.gridImageSize));
-% 
-params.image_grid_preproc = Igrid;
-params.rsf = rsf;
-% 
-params = pg_rescale(params, rsf);
+if rescale
+    rsf     = params.gridImageSize./size(Igrid);
+    params  = pg_pp_rescale(params, rsf(1));
+    % 
+    % 
+    % % Igrid = getPrepImage(oP, imresize(I, params.gridImageSize));
+    Igrid = pg_pp_fun(params, imresize(Igrid, params.gridImageSize));
+    % 
+    params.image_grid_preproc = Igrid;
+    params.rsf = rsf;
+    % 
+    params = pg_rescale(params, rsf);
+end
 
                
 end

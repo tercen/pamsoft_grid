@@ -40,6 +40,7 @@ docker run --rm -ti \
       
 # Run
 docker run --rm -ti \
+      -w /mcr/exe/ \
       -v $PWD/standalone/:/mcr/exe/ \
       -v $PWD/test/evolve_images/data1:/mcr/exe/test_data \
       -v $PWD/test_params:/mcr/exe/test_params \

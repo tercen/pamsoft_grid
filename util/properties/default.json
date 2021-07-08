@@ -62,9 +62,19 @@
 	"segMinEdgePixels":6,
 	"segBgOffset":0.45,
 
+	"qaMaxDiameter":1.5,
+	"qaMinDiameter":0.5,
+	"qaMaxOffset":0.4,
+	"qaMaxOffsetRef":0.6,
+	"qaMinSnr":1,
+
 	 "pgMode":"grid",
     	 "arraylayoutfile":"",
 	 "outputfile":"",
-  	 "imageslist":[]  
+  	 "imageslist":[],
+
+     "griddingoutputfile":"",
+
+     "dbgPrintOutput":"no"
 }
 

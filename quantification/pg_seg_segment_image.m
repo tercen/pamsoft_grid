@@ -4,7 +4,7 @@ exitCode        = 0;
 maxSubIter      = 2; % Max iterations for subs vs refs refinement 
 maxRefSubOffset = 0.15; % Max offset criterium between refs and subs.
 
-if isequal(params.verbose, 'on')
+if isequal(params.verbose, 'on') || isequal(params.verbose, 'yes')
     bVerbose = true;
 else
     bVerbose = false;

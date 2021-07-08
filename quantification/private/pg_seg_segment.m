@@ -4,8 +4,8 @@ function exitCode = pg_seg_segment(params, I, cx, cy, bFxd, rotation)
 exitCode = 0;
 if ~isequal(size(cx),size(cy))
 %     error('The number of x coordinates must be equal to the number of y coordinates');
-    exitCode = -211;
-    pg_error_message('quantification.segment.size', exitCode);
+    exitCode = -15;
+    pg_error_message(exitCode, 'x coordinates', 'y coordinates');
     return
     
 end
@@ -21,8 +21,8 @@ params.segNFilterDisk = params.prpSmallDisk * params.grdSpotPitch;
 
 if isempty(params.grdSpotPitch)
 %     error('Parameter ''spotPitch'' has not been defined');
-    exitCode = -212;
-    pg_error_message('grid.no_spotpitch', exitCode);
+    exitCode = -11;
+    pg_error_message(exitCode, 'grdSpotPitch');
     return
 end
 
@@ -38,8 +38,11 @@ end
 switch params.segMethod
 
     case 'Threshold'
-        error('segment by threshold is currently not supported')
+%         error('segment by threshold is currently not supported')
         %sOut = segmentByThreshold(s, I, cx, cy, rotation);
+        exitCode = -13;
+        pg_error_message(exitCode, 'params.segMethod', params.segMethod);
+        return
     case 'Edge'
         sOut = repmat(s, length(cx(:)),1);
         if any(~bFxd)

@@ -65,6 +65,10 @@
 	 "pgMode":"grid",
     	 "arraylayoutfile":"",
 	 "outputfile":"",
-  	 "imageslist":[]  
+  	 "imageslist":[],
+
+     "griddingoutputfile":"",
+
+     "dbgPrintOutput":"no"
 }
 

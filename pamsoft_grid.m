@@ -36,16 +36,17 @@ end
 
 
 
+
+
 % First mode of execution: image preprocessing & gridding
 if exitCode == 0 && strcmpi(params.pgMode, 'grid') 
     % Read grid layout information
     [params, exitCode] = pg_grd_read_layout_file(params, '#');
-    
 
     if exitCode == 0
-        [params, exitCode] = pg_grd_preprocess_images(params);
+        [params, exitCode] = pg_grd_preprocess_images(params, true);
     end
-    
+
     if exitCode == 0
         [params, exitCode] = pg_grd_gridding(params);
     end
@@ -59,20 +60,34 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
     end
 
     
+    if strcmpi(params.dbgPrintOutput, 'yes')
+        disp(readlines(params.outputfile));
+    end
+    
 
 end
 
 
 if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
 
+    % @TODO It is probably a good idea to validate the layout and ensure
+    % teh spot IDs of the quantification's array layout match those saved
+    % by the gridding procedure
+    if exitCode == 0
+        [params, exitCode] = pg_grd_preprocess_images(params, false);
+    end
+    
     % @FIXME change this to a function which specifically reads the
     % gridding output
-    [params, exitCode] = pg_read_params_json(params,  params.griddingOutput);
+    if exitCode == 0
+        [params, exitCode] = pg_io_read_in_gridding_results(params);
+    end
+    
+    
+    
 %     params
     if exitCode == 0
-%         params
         pg_seg_segment_image(params);
-        
     end
 %         pg_preprocess_images(params);
 %         params
