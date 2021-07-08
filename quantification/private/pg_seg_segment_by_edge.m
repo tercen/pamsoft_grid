@@ -42,7 +42,7 @@ params = pg_seg_set_background_mask(params, size(I));
 % s      = repmat(oS, length(cx(:)), 1);
 
 
-spot        = pg_seg_create_spot_structure(params)
+spot        = pg_seg_create_spot_structure(params);
 params.spot = repmat(spot, length(cx(:)), 1);
 
 for i = 1:length(cx(:))

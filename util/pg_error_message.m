@@ -55,6 +55,9 @@ function errMap = pg_create_error_map()
     errMap(-18) = 'Failed to save inexistent params field $1.';
     errMap(-19) = 'All parameters to be saved must have the same length (different field: $1).';
     errMap(-20) = 'Error reading file $2 [$1] (Message: $3).';
+    
+    errMap(-21) = 'None of the reference spots were properly found.';
+    
     errMap(-1000) = 'Invalid command line argument passed. Expected pamsoft_grid --param-file=/path/to/paramfile.json';
     
 

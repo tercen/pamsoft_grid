@@ -71,14 +71,16 @@ end
 if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
 
     % @TODO It is probably a good idea to validate the layout and ensure
-    % teh spot IDs of the quantification's array layout match those saved
+    % the spot IDs of the quantification's array layout match those saved
     % by the gridding procedure
+    
+    % The image for gridding and segmentation must be the same, so run this
+    % part again, though the rescaling part is not necessary (second
+    % argument)
     if exitCode == 0
         [params, exitCode] = pg_grd_preprocess_images(params, false);
     end
     
-    % @FIXME change this to a function which specifically reads the
-    % gridding output
     if exitCode == 0
         [params, exitCode] = pg_io_read_in_gridding_results(params);
     end

@@ -14,12 +14,16 @@ for i=1:length(params.spot)
 %              params.spot(i) = pg_translate_background_mask( params.spot(i), ...
 %                         [x0, y0], size(I) );
     params.spot(i) = pg_translate_background_mask(params.spot(i), params.spot(i).initialMidpoint, params.spot(i).bsSize);
+    
     params.spot(i).finalMidpoint = params.spot(i).initialMidpoint;
-    params.spot(i).diameter = dftSpotSize;
-    params.spot(i).bsLuIndex = params.spot(i).finalMidpoint - round(params.spot(i).bsSize)/2; 
-    [x,y] = getOutline(oS(i), 'coordinates', 'global');   
-    [xc,yc] = find(true(oS(i).bsSize));
-    in = inpolygon(xc,yc, x, y);
-    oS(i).bsTrue = find(in);
+    params.spot(i).diameter      = dftSpotSize;
+    params.spot(i).bsLuIndex 	 = params.spot(i).finalMidpoint - round(params.spot(i).bsSize)/2; 
+    
+    
+    
+    [x,y]                 = pg_seg_get_outline(params.spot(i), 'coordinates', 'global');   
+    [xc,yc]               = find(true(oS(i).bsSize));
+    in                    = inpolygon(xc,yc, x, y);
+    params.spot(i).bsTrue = find(in);
 
 end
