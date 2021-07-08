@@ -33,8 +33,6 @@ docker pull tercen/mcr:R2020b
 
 docker run --rm -ti \
       -v $PWD/standalone/:/mcr/exe/ \
-      -v $PWD/test/evolve_images/data1:/mcr/test_data \
-      -v $PWD/test_params:/mcr/test_params \
       tercen/mcr:R2020b \
       bash
       
@@ -53,15 +51,14 @@ docker run --rm \
       
 # Run
 docker run --rm -ti \
-      -w /mcr/exe/ \
       -v $PWD/standalone/:/mcr/exe/ \
-      -v $PWD/test/evolve_images/data1:/mcr/exe/test_data \
-      -v $PWD/test_params:/mcr/exe/test_params \
       tercen/mcr:R2020b \
       /mcr/exe/pamsoft_grid \
-      --param-file=/mcr/exe/test_params/input_params.json
-
-
+      --mode=grid \
+      --param-file=/mcr/exe/default.json \
+      --images-list-file=xxx \
+      --array-layout-file=xxx \
+      --output-file=output_test_1.txt
 ```
 
 ```shell
