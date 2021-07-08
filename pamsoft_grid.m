@@ -20,7 +20,7 @@ disp('');
 
 if exitCode == 0
     % Populate with default values
-    [params, exitCode] = pg_io_read_params_json(params, 'default.json');
+    [params, exitCode] = pg_io_read_params_json(params, 'default');
     params.grdPrivate  = [];
 end
 

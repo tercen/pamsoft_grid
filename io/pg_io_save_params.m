@@ -8,6 +8,13 @@ function exitCode = pg_io_save_params(params, fields)
         return;
     end
 
+    [filepath, ~, ~] = fileparts(params.outputfile);
+    
+    if ~exist(filepath, 'dir')
+        mkdir(filepath);
+    end
+    
+    
     nFields = length(fields);
     lFields = -1;
     

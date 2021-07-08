@@ -32,8 +32,10 @@ end
 
 function errMap = pg_create_error_map()
 
-    errMap = containers.Map;
+
+    errMap = containers.Map('KeyType', 'int32', 'ValueType', 'char');
     errMap(-1) = 'The specified filepath for $2 does not exist ($1).';
+  
     errMap(-2) = 'Error parsing configuration file $1.';
     errMap(-3) = 'Parameter imageslist has not been set in $1.';
     errMap(-4) = 'Parameter imageslist must be an array with length > 1.';

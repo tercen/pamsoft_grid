@@ -44,21 +44,10 @@ docker run --rm -ti \
 docker run --rm \
       -v $PWD/standalone:/mcr/exe \
       -v $PWD/test:/test \
-      -w /mcr/exe \
       tercen/mcr:R2020b \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params.json
-      
-# Run
-docker run --rm -ti \
-      -v $PWD/standalone/:/mcr/exe/ \
-      tercen/mcr:R2020b \
-      /mcr/exe/pamsoft_grid \
-      --mode=grid \
-      --param-file=/mcr/exe/default.json \
-      --images-list-file=xxx \
-      --array-layout-file=xxx \
-      --output-file=output_test_1.txt
+
 ```
 
 ```shell

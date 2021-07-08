@@ -1,22 +1,25 @@
 function [params, exitCode] = pg_io_read_params_json(params, jsonFile)
     exitCode = 0;
 
+    if strcmpi(jsonFile, 'default')
+        params = pg_io_get_default_params(params);
+        return
+    end
+    
+    
     if ~exist(jsonFile, 'file')
         exitCode = -1;
-        pg_error_message(exitCode, jsonFile);
+        pg_error_message(exitCode, jsonFile, 'pg_io_read_params_json');
         return
     end
 
-    if strcmpi(jsonFile, 'default.json')
-        params = pg_io_get_default_params(params);
-        return
-    else
-        % Read JSON file into a string
-        fid = fopen(jsonFile);
-        raw = fread(fid, inf);
-        str = char(raw');
-        fclose(fid);
-    end
+    
+    % Read JSON file into a string
+    fid = fopen(jsonFile);
+    raw = fread(fid, inf);
+    str = char(raw');
+    fclose(fid);
+
 
 
     try
