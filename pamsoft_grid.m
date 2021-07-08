@@ -56,7 +56,8 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         exitCode = pg_io_save_params(params, {'qntSpotID', 'grdIsReference', ...
                         'grdRow', 'grdCol', ...
                         'grdXOffset', 'grdYOffset', ...
-                        'grdXFixedPosition', 'grdYFixedPosition'} );
+                        'grdXFixedPosition', 'grdYFixedPosition', ...
+                        'gridX', 'gridY', 'grdRotation'} );
     end
 
     
@@ -73,6 +74,10 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     % @TODO It is probably a good idea to validate the layout and ensure
     % the spot IDs of the quantification's array layout match those saved
     % by the gridding procedure
+    if exitCode == 0
+        [params, exitCode] = pg_io_read_in_gridding_results(params);
+    end
+    
     
     % The image for gridding and segmentation must be the same, so run this
     % part again, though the rescaling part is not necessary (second
@@ -81,13 +86,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
         [params, exitCode] = pg_grd_preprocess_images(params, false);
     end
     
-    if exitCode == 0
-        [params, exitCode] = pg_io_read_in_gridding_results(params);
-    end
-    
-    
-    
-%     params
+
     if exitCode == 0
         pg_seg_segment_image(params);
     end

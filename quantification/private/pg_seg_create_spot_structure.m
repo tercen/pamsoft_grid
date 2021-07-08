@@ -12,7 +12,7 @@ function spot = pg_seg_create_spot_structure(params)
     for k = 1:length(fieldNames)
         fName = fieldNames{k};
         if isfield(params, fName)
-            spot.(fName) = params.fName;
+            spot.(fName) = params.(fName);
         else
             spot.(fName) = fieldDefaultValues{k};
         end

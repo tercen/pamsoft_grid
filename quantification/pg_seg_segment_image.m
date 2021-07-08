@@ -17,7 +17,7 @@ else
 end
 
 spotPitch = params.grdSpotPitch;
-isRef     = params.grdIsReference; %get(pgr.oArray, 'isreference');%= get(pgr.oArray, 'spotPitch');
+isRef     = logical(params.grdIsReference); %get(pgr.oArray, 'isreference');%= get(pgr.oArray, 'spotPitch');
 % pgr.oSegmentation = set(pgr.oSegmentation, 'spotPitch', spotPitch);
 
 % params.grdIsReference
@@ -53,15 +53,20 @@ end
 
 % pgrRef = set(pgr, 'oArray', oaRef);
 % pgrSub = set(pgr, 'oArray', oaSub);
-
+x = params.gridX;
+y = params.gridY;
 if any(~isRef)
     % segment as separate reference array (different quality settings)
 %     [qRefs,~, mpRefs] = segmentAndRefine(pgrRef, I, xFxd(isRef), yFxd(isRef), params.grd, true);
-    [paramsRef,~, mpRefs] = pg_seg_segment_and_refine(paramsRef, true);
+    [paramsRef,~, mpRefs] = pg_seg_segment_and_refine(paramsRef, x(isRef), y(isRef), true);
 else
-%     [qRefs,~, mpRefs] = segmentAndRefine(pgrRef, I, xFxd(isRef), yFxd(isRef), rot, false);
-    [paramsRef,~, mpRefs] = pg_seg_segment_and_refine(paramsRef, false);
+%     [qRefs,~, mpRefs] = segmentAndRefine(pgrRef, I, xFxd(isRef),  yFxd(isRef), rot, false);
+    [paramsRef,~, mpRefs] = pg_seg_segment_and_refine(paramsRef, x(isRef), y(isRef), false);
 end
+
+
+% Checked up to here
+% TODO Finish checking against legacy code
 
 
 % if all(get(qRefs, 'isBad'))
@@ -112,10 +117,13 @@ if any(~isRef)
 %         'rotation', rot);
     % These are the initial coordinates, based on the ref spot refined
     % midpoint
-    [xSub, ySub] = coordinates(arrayRefined, mpRefs);
+%     [xSub, ySub] = coordinates(arrayRefined, mpRefs);
+    [xSub,ySub, exitCode] = pg_grd_coordinates(arrayRefined, mpRefs);
     for pass = 1:maxSubIter
 
-        [qSub, spotPitch, mpSub] = segmentAndRefine(pgrSub, I, xSub,ySub, rot); 
+%         [qSub, spotPitch, mpSub] = segmentAndRefine(pgrSub, I, xSub,ySub, rot); 
+        
+        [paramsSub, spotPitch, mpSub] = pg_seg_segment_and_refine(paramsSub, xSub, ySub);
         if all(bFixedSpot(~isRef)) || ~bOptimize
             break;
         end
@@ -138,12 +146,15 @@ if any(~isRef)
             break;
         end
           % optimize the sub coordinates
-        [xr,yr] = coordinates(arrayRefined, mpSub); % get expected coordinates from first pass midpoint
+        [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined, mpSub);
+%         [xr,yr] = coordinates(arrayRefined, mpSub); % get expected coordinates from first pass midpoint
         xSub(~bFixedSpot(~isRef)) = xr(~bFixedSpot(~isRef)); % adapt the ~bFixedSpot coordinates 
         ySub(~bFixedSpot(~isRef)) = yr(~bFixedSpot(~isRef)); 
         mpRefs = mpSub;          
     end
-    qOut(~isRef) = qSub;
+%     qOut(~isRef) = qSub;
+%     params.spots(~isRef)
+    % @FIXME Set the desired output here
 end
 qOut = setSet(qOut, 'ID', ID, ...
                     'arrayRow', arrayRow, ...

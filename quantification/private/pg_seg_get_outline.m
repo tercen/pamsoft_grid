@@ -16,7 +16,7 @@ x = [];
 y = [];
 r = spot.diameter/2;
 if ~isempty(r)
-    [x,y] = pg_circle(mp(1), mp(2), r, round(2*pi*r));
+    [x,y] = pg_circle([mp(1), mp(2)], r, round(2*pi*r));
 end
 
 

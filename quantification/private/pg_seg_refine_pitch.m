@@ -39,7 +39,8 @@ if any(isRef & bUse)
     pitch = sqrt( (dx.^2 + dy.^2)./(dr.^2 + (aYX*dc).^2) );
 
     if length(pitch) > 1
-        bOut = detect(outlier, pitch(:));
+%         bOut = detect(outlier, pitch(:));
+        bOut = pg_seg_detect_outlier(pitch(:), params);
         params.grdSpotPitch = mean(pitch(~bOut));
     end
 end

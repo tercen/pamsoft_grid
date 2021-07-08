@@ -182,9 +182,15 @@ x(x>size(params.image_grid,1)) = size(params.image_grid,1);
 y(y>size(params.image_grid,2)) = size(params.image_grid,2);
 
 
-params.grdXFixedPosition = x;
-params.grdYFixedPosition = y;
-params.grdRot            = rot;
+% params.grdXFixedPosition = x;
+% params.grdYFixedPosition = y;
+params.gridX = x;
+params.gridY = y;
+
+
+% This is used to simplify saving. Rotation then is picked as first value
+% later on
+params.grdRotation       = repmat(rot, length(x), 1);
 params.grdMx             = mx;
 
 params.grdSpotPitch      = params.grdSpotPitch ./ params.rsf ;

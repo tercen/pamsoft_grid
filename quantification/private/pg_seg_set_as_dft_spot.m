@@ -1,29 +1,29 @@
 % function oS = setAsDftSpot(oS,dftSpotSize)
-function params = pg_seg_set_as_dft_spot(params, dftSpotSize)
+function spots = pg_seg_set_as_dft_spot(spots, dftSpotSize)
 if nargin < 2
        dftSpotSize = [];
 end
 
-for i=1:length(params.spot)
-    if isempty(params.spot(i).bsSize)
+for i=1:length(spots)
+    if isempty(spots(i).bsSize)
         error('bsSize (binSpot) property has not been set');
     end
     if isempty(dftSpotSize)
-        dftSpotSize = 0.6 * params.spot(i).grdSpotPitch;
+        dftSpotSize = 0.6 * spots(i).grdSpotPitch;
     end
-%              params.spot(i) = pg_translate_background_mask( params.spot(i), ...
+%              spots(i) = pg_translate_background_mask( spots(i), ...
 %                         [x0, y0], size(I) );
-    params.spot(i) = pg_translate_background_mask(params.spot(i), params.spot(i).initialMidpoint, params.spot(i).bsSize);
+    spots(i) = pg_seg_translate_background_mask(spots(i), spots(i).initialMidpoint, spots(i).bsSize);
     
-    params.spot(i).finalMidpoint = params.spot(i).initialMidpoint;
-    params.spot(i).diameter      = dftSpotSize;
-    params.spot(i).bsLuIndex 	 = params.spot(i).finalMidpoint - round(params.spot(i).bsSize)/2; 
+    spots(i).finalMidpoint = spots(i).initialMidpoint;
+    spots(i).diameter      = dftSpotSize;
+    spots(i).bsLuIndex 	 = spots(i).finalMidpoint - round(spots(i).bsSize)/2; 
     
     
     
-    [x,y]                 = pg_seg_get_outline(params.spot(i), 'coordinates', 'global');   
-    [xc,yc]               = find(true(oS(i).bsSize));
+    [x,y]                 = pg_seg_get_outline(spots(i), 'coordinates', 'global');   
+    [xc,yc]               = find(true(spots(i).bsSize));
     in                    = inpolygon(xc,yc, x, y);
-    params.spot(i).bsTrue = find(in);
+    spots(i).bsTrue = find(in);
 
 end

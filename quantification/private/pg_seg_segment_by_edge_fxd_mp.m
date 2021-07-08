@@ -1,5 +1,5 @@
 % function s = pg_seg_segment_by_edge_fxd_mp(oS, I, cx, cy, rotation)
-function params = pg_seg_segment_by_edge_fxd_mp(params, I, cx, cy, ~)
+function spots = pg_seg_segment_by_edge_fxd_mp(params, I, cx, cy, ~)
 spotPitch = params.grdSpotPitch;
 %  get the left upper coordinates and right lower coordinates
 xLu = round(cx - spotPitch);
@@ -34,13 +34,13 @@ spotPitch = round(spotPitch);
 % oS = setBackgroundMask(oS, size(I));
 params = pg_seg_set_background_mask(params, size(I));
 % s = repmat(oS, length(cx(:)), 1);
-spot        = pg_seg_create_spot_structure(params)
-params.spot = repmat(spot, length(cx(:)), 1);
+spot        = pg_seg_create_spot_structure(params);
+params.spots = repmat(spot, length(cx(:)), 1);
 
 for i = 1:length(cx(:))
 %     s(i) = oS;
 %     s(i).initialMidpoint = [cx(i), cy(i)];
-    params.spot(i).initialMidpoint = [cx(i), cy(i)];
+    params.spots(i).initialMidpoint = [cx(i), cy(i)];
     
     xLocal = round(xLu(i) + [0, 2*spotPitch]);
     yLocal = round(yLu(i) + [0, 2*spotPitch]);
@@ -67,17 +67,17 @@ for i = 1:length(cx(:))
     [x,y] = find(Ilocal);
     % store the current area left upper
 %     s(i).bsLuIndex = [xLocal(1), yLocal(1)];
-    params.spot(i).bsLuIndex = [xLocal(1), yLocal(1)];
+    params.spots(i).bsLuIndex = [xLocal(1), yLocal(1)];
     
 %     s(i).bsSize = size(Ilocal);
-    params.spot(i).bsLuIndex = size(Ilocal);
+    params.spots(i).bsLuIndex = size(Ilocal);
     
 %     s(i) = translateBackgroundMask(s(i),[cx(i),cy(i)], size(I));
-    params.spot(i) = pg_translate_background_mask( params.spot(i), ...,
+    params.spots(i) = pg_translate_background_mask( params.spots(i), ...,
                     [cx(i), cy(i)], size(I) );
         
 %     s(i).finalMidpoint = [cx(i),cy(i)];
-    params.spot(i).finalMidpoint = [cx(i),cy(i)];
+    params.spots(i).finalMidpoint = [cx(i),cy(i)];
     
     
     
@@ -88,11 +88,14 @@ for i = 1:length(cx(:))
         [r, nChiSqr] = pg_seg_rob_circ_fit_fxd_mp(x,y,cx(i),cy(i));
         
         Ilocal = false(size(Ilocal));
-        params.spot(i).diameter = 2*r;
-        params.spot(i).chisqr   = nChiSqr;
+        params.spots(i).diameter = 2*r;
+        params.spots(i).chisqr   = nChiSqr;
         
         [xFit, yFit] = pg_circle(cx(i),cy(i),r,round(pi*r)/2);
         Ilocal = roipoly(Ilocal, yFit, xFit);
-        params.spot(i).bsTrue    = find(Ilocal);
+        params.spots(i).bsTrue    = find(Ilocal);
     end
 end
+
+
+spots = params.spots;

@@ -1,5 +1,5 @@
 % function [q, spotPitch, mp] = pg_qnt_segment_and_refine(pgr, I, x, y, rot, asRef)
-function [params, spotPitch, mp] = pg_seg_segment_and_refine(params, asRef)
+function [params, spotPitch, mp] = pg_seg_segment_and_refine(params, x, y, asRef)
 % Segments and attempts to refine the spotpitch
 % if nargin == 5
 %     asRef = false;
@@ -22,8 +22,8 @@ else
 end
 
 % x and y come from gridding
-x = params.grdXFixedPosition;
-y = params.grdYFixedPosition;
+% fxdx = params.grdXFixedPosition;
+% fxdy = params.grdYFixedPosition;
 
 maxDelta  = 0.3;
 spotPitch = params.grdSpotPitch; %get(pgr.oArray, 'spotPitch');
@@ -32,9 +32,8 @@ spotPitch = params.grdSpotPitch; %get(pgr.oArray, 'spotPitch');
 % 291.5000  372.0039
 mp   = pg_mid_point(params, x,y);
 
-
-fxdx       = x;
-fxdy       = y;
+fxdx       = params.grdXFixedPosition;
+fxdy       = params.grdYFixedPosition;
 bFixedSpot = fxdx ~= 0;
 % For the fixed spots, replace the input x and y by xFixedPosition and yFixedPosition
 x(bFixedSpot) = fxdx(bFixedSpot);
@@ -99,7 +98,7 @@ while delta > maxDelta
 
     % calculate array coordinates based on refined pitch
 %     [xr,yr] = coordinates(arrayRefined, mp, rot);
-     [xr,yr, exitCode] = pg_grd_coordinates(params,mp, rot);
+     [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined,mp, params.grdRotation);
 
     if bVerb
         disp('Spot pitch optimization')

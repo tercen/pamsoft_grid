@@ -16,6 +16,6 @@ sqCorners = [   fmp(2)-pxOff, fmp(1)-pxOff;
                 fmp(2)+pxOff, fmp(1)+pxOff;
                 fmp(2)+pxOff, fmp(1)-pxOff ];
 aSquareMask = poly2mask(sqCorners(:,1), sqCorners(:,2), imSize(1), imSize(2));
-[crx, cry] = pg_circle(fmp(2), fmp(1), pxOff,25);
+[crx, cry] = pg_circle([fmp(2), fmp(1)], pxOff,25);
 aCircleMask = poly2mask(crx, cry, imSize(1), imSize(2));
 params.bbTrue = find(aSquareMask & ~aCircleMask);

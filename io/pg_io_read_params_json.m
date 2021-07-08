@@ -85,11 +85,10 @@ function params = pg_io_get_default_params(params)
     % Segmentation properties
     params.segEdgeSensitivity = [0, 0.01];
     params.segAreaSize        = 0.7;
-    params.setMethod          = 'Edge';
-    params.segAreaSize        = 1;
+    params.segMethod          = 'Edge';
     params.segNFilterDisk     = 0;
-    params.segEdgeSensitivity = [0, 0.005];
-    params.segMinEdgePizels   = 6;
+%     params.segEdgeSensitivity = [0, 0.005];
+    params.segMinEdgePixels   = 6;
     params.segBgOffset        = 0.45;
     
     
@@ -106,7 +105,7 @@ function params = pg_io_get_default_params(params)
     params.qntSeriesMode        = 'Fixed'; %Fixed, AdaptGlobal
     params.qntSaturationLimit   = -1 + 2^16;
     params.qntOutlierMethod     = 'iqrBased'; % none, iqrBased
-    params.qntOutlierMeasure    = 1.75;
+    params.qntOutlierMeasure    = 1.5;
     params.qntShowPamGridViewer = 'no';
     
     
