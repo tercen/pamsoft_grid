@@ -39,6 +39,19 @@ docker run --rm -ti \
       bash
       
 # Run
+
+# clean up output if necessary
+# sudo rm test/output/output.txt
+  
+docker run --rm \
+      -v $PWD/standalone:/mcr/exe \
+      -v $PWD/test:/test \
+      -w /mcr/exe \
+      tercen/mcr:R2020b \
+      /mcr/exe/pamsoft_grid \
+      --param-file=/test/input/input_params.json
+      
+# Run
 docker run --rm -ti \
       -w /mcr/exe/ \
       -v $PWD/standalone/:/mcr/exe/ \
