@@ -40,13 +40,23 @@ docker run --rm -ti \
 
 # clean up output if necessary
 # sudo rm test/output/output.txt
+# sudo rm test/output/output.txt
   
+# gridding
 docker run --rm \
       -v $PWD/standalone:/mcr/exe \
       -v $PWD/test:/test \
       tercen/mcr:R2020b \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params.json
+     
+# quantification 
+docker run --rm \
+      -v $PWD/standalone:/mcr/exe \
+      -v $PWD/test:/test \
+      tercen/mcr:R2020b \
+      /mcr/exe/pamsoft_grid \
+      --param-file=/test/input/input_params_quant.json
 
 ```
 
