@@ -5,10 +5,11 @@
 	"qntShowPamGridViewer":1,
 	"grdSpotPitch":21.5,
 	"_grdUseImageOptions":"Last, First, FirstLast, All, EXPOSURE_CYCLE",
-	"grdUseImage":"First",
-    "pgMode":"grid",
+	"grdUseImage":"Last",
+    "pgMode":"quantification",
     "arraylayoutfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406 86312 Array Layout.txt",
-	"outputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/output_test_1.txt",
+	"outputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/output_grid.txt",
+    "griddingoutputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/output_grid.txt",
     "imageslist":[  "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T10_P94_I157_A30.tif",
                       "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T20_P94_I169_A30.tif",
                       "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P32_I1_A30.tif",
@@ -25,7 +26,7 @@
                       "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P92_I145_A30.tif",
                       "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P94_I181_A30.tif",
                       "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T100_P94_I193_A30.tif",
-                      "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T200_P94_I205_A30.tif"]   
+                      "/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T200_P94_I205_A30.tif"]
 
 }
 

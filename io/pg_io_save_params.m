@@ -3,11 +3,18 @@ function exitCode = pg_io_save_params(params, fields)
     exitCode = 0;
     
     if ~isfield(params, 'outputfile')
-        exitCode = -80;
-        pg_error_message('general.no_outputfile', exitCode);
+        exitCode = -11;
+        pg_error_message(exitCode, 'outputfile');
         return;
     end
 
+    [filepath, ~, ~] = fileparts(params.outputfile);
+    
+    if ~exist(filepath, 'dir')
+        mkdir(filepath);
+    end
+    
+    
     nFields = length(fields);
     lFields = -1;
     
@@ -15,8 +22,8 @@ function exitCode = pg_io_save_params(params, fields)
     for i = 1:nFields
         if ~isfield( params, fields{i} )
  
-            exitCode = -81;
-            pg_error_message('general.no_savefield', exitCode, fields{i});
+            exitCode = -18;
+            pg_error_message(exitCode, fields{i});
             return;
         end
         
@@ -25,8 +32,8 @@ function exitCode = pg_io_save_params(params, fields)
         end
         
         if length(params.(fields{i})) ~= lFields
-            exitCode = -82;
-            pg_error_message('general.save_length', exitCode, fields{i});
+            exitCode = -19;
+            pg_error_message(exitCode, fields{i});
             return;
         end
     end

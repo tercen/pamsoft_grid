@@ -25,6 +25,8 @@ else
     return;
 end
 
+bKeep = logical(bKeep);
+
 subParams = params;
 subParams.grdIsReference = params.grdIsReference(bKeep);
 subParams.grdRow = params.grdRow(bKeep);

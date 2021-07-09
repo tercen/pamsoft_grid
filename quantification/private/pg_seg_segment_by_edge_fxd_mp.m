@@ -1,5 +1,6 @@
-function s = pg_seg_segment_by_edge_fxd_mp(oS, I, cx, cy, rotation)
-spotPitch = oS.spotPitch;
+% function s = pg_seg_segment_by_edge_fxd_mp(oS, I, cx, cy, rotation)
+function spots = pg_seg_segment_by_edge_fxd_mp(params, I, cx, cy, ~)
+spotPitch = params.grdSpotPitch;
 %  get the left upper coordinates and right lower coordinates
 xLu = round(cx - spotPitch);
 yLu = round(cy - spotPitch);
@@ -17,24 +18,30 @@ imxRl = max(xRl);
 imyRl = max(yRl);
 J = I(imxLu:imxRl, imyLu:imyRl);
 % apply morphological filtering if required.
-if oS.nFilterDisk >= 1
-    se = strel('disk', round(oS.nFilterDisk/2));
+if params.segNFilterDisk >= 1
+    se = strel('disk', round(params.segNFilterDisk/2));
     J  = imerode(J, se);
     J  = imdilate(J, se);
 end
-J = edge(J, 'canny', oS.edgeSensitivity);
+J = edge(J, 'canny', params.segEdgeSensitivity);
 I = false(size(I));
 I(imxLu:imxRl, imyLu:imyRl) = J;
 % start segmentation loop
-pixAreaSize = oS.areaSize * spotPitch;
+pixAreaSize = params.segAreaSize * spotPitch;
 pixOff = round(max(spotPitch -0.5*pixAreaSize,0));
 spotPitch = round(spotPitch);
 % preallocate the array of segmentation objects
-oS = setBackgroundMask(oS, size(I));
-s = repmat(oS, length(cx(:)), 1);
-for i=1:length(cx(:))
-    s(i) = oS;
-    s(i).initialMidpoint = [cx(i), cy(i)];
+% oS = setBackgroundMask(oS, size(I));
+params = pg_seg_set_background_mask(params, size(I));
+% s = repmat(oS, length(cx(:)), 1);
+spot        = pg_seg_create_spot_structure(params);
+params.spots = repmat(spot, length(cx(:)), 1);
+
+for i = 1:length(cx(:))
+%     s(i) = oS;
+%     s(i).initialMidpoint = [cx(i), cy(i)];
+    params.spots(i).initialMidpoint = [cx(i), cy(i)];
+    
     xLocal = round(xLu(i) + [0, 2*spotPitch]);
     yLocal = round(yLu(i) + [0, 2*spotPitch]);
     xLocal(xLocal < 1) = 1;
@@ -59,19 +66,36 @@ for i=1:length(cx(:))
     end
     [x,y] = find(Ilocal);
     % store the current area left upper
-    s(i).bsLuIndex = [xLocal(1), yLocal(1)];
-    s(i).bsSize = size(Ilocal);
-    s(i) = translateBackgroundMask(s(i),[cx(i),cy(i)], size(I));
-    s(i).finalMidpoint = [cx(i),cy(i)];
-    if length(x) >= oS.minEdgePixels;
+%     s(i).bsLuIndex = [xLocal(1), yLocal(1)];
+    params.spots(i).bsLuIndex = [xLocal(1), yLocal(1)];
+    
+%     s(i).bsSize = size(Ilocal);
+    params.spots(i).bsLuIndex = size(Ilocal);
+    
+%     s(i) = translateBackgroundMask(s(i),[cx(i),cy(i)], size(I));
+    params.spots(i) = pg_translate_background_mask( params.spots(i), ...,
+                    [cx(i), cy(i)], size(I) );
+        
+%     s(i).finalMidpoint = [cx(i),cy(i)];
+    params.spots(i).finalMidpoint = [cx(i),cy(i)];
+    
+    
+    
+    
+    if length(x) >= params.segMinEdgePixels
         % min nr of pixels found
         % fit a circle to the foreground pixels, at the fixed midpoint
-        [r, nChiSqr] = robCircFitFxdMp(x,y,cx(i),cy(i));
+        [r, nChiSqr] = pg_seg_rob_circ_fit_fxd_mp(x,y,cx(i),cy(i));
+        
         Ilocal = false(size(Ilocal));
-        s(i).diameter = 2*r;
-        s(i).chisqr = nChiSqr;
-        [xFit, yFit] = circle(cx(i),cy(i),r,round(pi*r)/2);
+        params.spots(i).diameter = 2*r;
+        params.spots(i).chisqr   = nChiSqr;
+        
+        [xFit, yFit] = pg_circle(cx(i),cy(i),r,round(pi*r)/2);
         Ilocal = roipoly(Ilocal, yFit, xFit);
-        s(i).bsTrue    = find(Ilocal);
+        params.spots(i).bsTrue    = find(Ilocal);
     end
 end
+
+
+spots = params.spots;
