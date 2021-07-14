@@ -8,7 +8,7 @@
 	"grdUseImage":"Last",
     "pgMode":"quantification",
     "arraylayoutfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406 86312 Array Layout.txt",
-	"outputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/output_grid.txt",
+	"outputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/output_quant.txt",
     "griddingoutputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/output_grid.txt",
 
 

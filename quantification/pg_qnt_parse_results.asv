@@ -77,10 +77,9 @@ for i = 1:nImg
         qTable{22,2}, ...
         qTable{23,2}, ...
         qTable{24,2}, ...
-        cellstr(repmat(imageName, nSpots,1)));
+        repmat(imageName, nSpo,1));
     %         qNames_=qNames;
     qNames{1}='ROW';
-    qNames{end+1} = 'ImageName';
     
     tbl.Properties.VariableNames = qNames;
     if i == 1

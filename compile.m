@@ -4,7 +4,7 @@ addpath(genpath('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/io/'));
 addpath(genpath('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/util/'));
 addpath(genpath('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/quantification'));
 
-res = compiler.build.standaloneApplication('pamsoft_grid.m', ...
+res = compiler.build.standaloneApplication('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/main/pamsoft_grid.m', ...
             'TreatInputsAsNumeric', false,...
             'OutputDir', '/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/standalone');
 
@@ -12,3 +12,5 @@ res = compiler.build.standaloneApplication('pamsoft_grid.m', ...
 delete('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/standalone/mccExcludedFiles.log');
 delete('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/standalone/readme.txt');
 delete('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/standalone/requiredMCRProducts.txt');
+
+

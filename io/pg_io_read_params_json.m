@@ -116,6 +116,7 @@ function params = pg_io_get_default_params(params)
     params.outputfile = '';
     params.imageslist = '';
     params.dbgPrintOutput = 'no';
+    params.dbgShowPresenter = 'no';
 
    
     
