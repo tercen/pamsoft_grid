@@ -30,7 +30,7 @@ c = abs(c(isRef & bUse));
 
 xPos = xPos(isRef & bUse);
 yPos = yPos(isRef & bUse);
-
+params.segOutliers = [];
 if any(isRef & bUse)
     dr = r(2:end)-r(1);
     dc = c(2:end)-c(1);
@@ -42,5 +42,6 @@ if any(isRef & bUse)
 %         bOut = detect(outlier, pitch(:));
         bOut = pg_seg_detect_outlier(pitch(:), params);
         params.grdSpotPitch = mean(pitch(~bOut));
+        params.segOutliers = bOut;
     end
 end

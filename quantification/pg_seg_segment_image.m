@@ -65,8 +65,6 @@ else
 end
 
 
-% Checked up to here
-% TODO Finish checking against legacy code
 
 
 % if all(get(qRefs, 'isBad'))
@@ -82,7 +80,7 @@ end
 
 % @FIXME This needs to be more sensibly passed
 % As in, what needs to be saved from the segmentation?
-params.seg_ref = paramsRef;
+% params.seg_ref = paramsRef;
 
 % qOut(isRef) = qRefs; % refs are segmented!
 
@@ -90,7 +88,7 @@ params.seg_ref = paramsRef;
 
 % if any, segment and quantify the substrates (non refs), allow for another
 % pass if the offset between resf and sub is to large
-bFixedSpot = xfxd > 0; % not refined spots
+bFixedSpot = xFxd > 0; % not refined spots
 if any(~isRef)
     
     paramsRefined = params;
@@ -99,10 +97,10 @@ if any(~isRef)
     paramsRefined.grdIsReference = ~isRef(~isRef);
     paramsRefined.grdXOffset = xOff(~isRef);
     paramsRefined.grdYOffset = yOff(~isRef);
-    paramsRefined.grdXFixedPosition = xfxd(~isRef);
-    paramsRefined.grdYFixedPosition = yfxd(~isRef);
+    paramsRefined.grdXFixedPosition = xFxd(~isRef);
+    paramsRefined.grdYFixedPosition = yFxd(~isRef);
     paramsRefined.grdSpotPitch = spotPitch;
-    paramsRefined.grdRotation = rot;
+    paramsRefined.grdRotation = params.grdRotation;
     
 
 %     arrayRefined = array(...
@@ -118,12 +116,16 @@ if any(~isRef)
     % These are the initial coordinates, based on the ref spot refined
     % midpoint
 %     [xSub, ySub] = coordinates(arrayRefined, mpRefs);
-    [xSub,ySub, exitCode] = pg_grd_coordinates(arrayRefined, mpRefs);
+    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs);
     for pass = 1:maxSubIter
 
 %         [qSub, spotPitch, mpSub] = segmentAndRefine(pgrSub, I, xSub,ySub, rot); 
         
         [paramsSub, spotPitch, mpSub] = pg_seg_segment_and_refine(paramsSub, xSub, ySub);
+     
+
+        % @TODO Fine up to here
+        
         if all(bFixedSpot(~isRef)) || ~bOptimize
             break;
         end
@@ -153,12 +155,143 @@ if any(~isRef)
         mpRefs = mpSub;          
     end
 %     qOut(~isRef) = qSub;
-%     params.spots(~isRef)
+    params.spots(~isRef) = paramsSub.spots;
+    params.segOutliers(~isRef) = paramsSub.segOutliers;
+    
+    params.segIsBad(~isRef)      = paramsSub.seg_res.isBad;
+    params.segIsEmpty(~isRef)    = paramsSub.seg_res.isEmpty;
+    params.segIsReplaced(~isRef) = paramsSub.seg_res.isReplaced;
+    
     % @FIXME Set the desired output here
 end
-qOut = setSet(qOut, 'ID', ID, ...
-                    'arrayRow', arrayRow, ...
-                    'arrayCol', arrayCol);
 
+params.segOutliers(isRef) = paramsRef.segOutliers;
+params.spots(isRef)       = paramsRef.spots;
+
+params.segIsBad(isRef)      = paramsRef.seg_res.isBad;
+params.segIsEmpty(isRef)    = paramsRef.seg_res.isEmpty;
+params.segIsReplaced(isRef) = paramsRef.seg_res.isReplaced;
+% 
+% qOut = setSet(qOut, 'ID', ID, ...
+%                     'arrayRow', arrayRow, ...
+%                     'arrayCol', arrayCol);
+%%
+
+% 
+% clc;
+% % segAreaSize = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_areaSize.txt');
+% % grdSpotPitch = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_spotPitch.txt');
+% % segNFilterDisk = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_nFilterDisk.txt');
+% % segEdgeSensitivity = readmatrix( '/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_edgeSensitivity.txt');
+% % segMinEdgePixels = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_minEdgePixels.txt');
+% % segBgOffset = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_bgOffset.txt');
+% % initialMidpoint = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_initialMidpoint.txt');
+% % finalMidpoint = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_finalMidpoint.txt');
+% % diameter = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_diameter.txt');
+% % chisqr = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_chisqr.txt');
+% % bsLuIndex = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_bsLuIndex.txt');
+% % bsSize = readmatrix('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_bsSize.txt');
+% % bbTrue = readmatrix( '/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy_bbTrue.txt');
+% 
+% vals = load('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy.mat');
+% 
+% i = 100;
+% 
+% plot( params.spots(i).bbTrue)
+% hold on
+% plot( vals.val12 )
+% 
+% if all(vals.val1 == params.spots(i).segAreaSize )
+%     fprintf('[SPOT %d] segAreaSize is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] segAreaSize is DIFFERENT\n', 1);
+% end
+% 
+% if all(vals.val2 == params.spots(i).grdSpotPitch )
+%     fprintf('[SPOT %d] grdSpotPitch is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] grdSpotPitch is DIFFERENT\n', 1);
+% end
+% 
+% if all(vals.val3 == params.spots(i).segNFilterDisk )
+%     fprintf('[SPOT %d] segNFilterDisk is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] segNFilterDisk is DIFFERENT\n', 1);
+% end
+% 
+% if all(vals.val == params.spots(i).segEdgeSensitivity )
+%     fprintf('[SPOT %d] segEdgeSensitivity is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] segEdgeSensitivity is DIFFERENT\n', 1);
+% end
+% 
+% if all(vals.val4 == params.spots(i).segMinEdgePixels )
+%     fprintf('[SPOT %d] segMinEdgePixels is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] segMinEdgePixels is DIFFERENT\n', 1);
+% end
+% 
+% 
+% if all(vals.val5 == params.spots(i).segBgOffset )
+%     fprintf('[SPOT %d] segBgOffset is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] segBgOffset is DIFFERENT\n', 1);
+% end
+% 
+% 
+% if all(vals.val6 == params.spots(i).initialMidpoint )
+%     fprintf('[SPOT %d] initialMidpoint is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] initialMidpoint is DIFFERENT\n', 1);
+% end
+% % isequal(finalMidpoint, params.spots(i).finalMidpoint )
+% if all(vals.val7 == params.spots(i).finalMidpoint )
+%     fprintf('[SPOT %d] finalMidpoint is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] finalMidpoint is DIFFERENT\n', 1);
+% end
+% 
+% if all(vals.val8 == params.spots(i).diameter )
+%     fprintf('[SPOT %d] diameter is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] diameter is DIFFERENT\n', 1);
+% end
+% 
+% 
+% 
+% if all(vals.val9 == params.spots(i).chisqr )
+%     fprintf('[SPOT %d] chisqr is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] chisqr is DIFFERENT\n', 1);
+% end
+% 
+% 
+% if all(vals.val10 == params.spots(i).bsLuIndex )
+%     fprintf('[SPOT %d] bsLuIndex is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] bsLuIndex is DIFFERENT\n', 1);
+% end
+% 
+% 
+% 
+% if all(vals.val11 == params.spots(i).bsSize )
+%     fprintf('[SPOT %d] bsSize is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] bsSize is DIFFERENT\n', 1);
+% end
+% 
+% 
+% 
+% if all(vals.val12 == params.spots(i).bbTrue )
+%     fprintf('[SPOT %d] bbTrue is equal\n', 1);
+% else
+%     fprintf('[SPOT %d] bbTrue is DIFFERENT\n', 1);
+% end
+% 
+% 
+% disp('.')
+% 
+% 
+% %%
 
 end

@@ -5,7 +5,7 @@
 	"qntShowPamGridViewer":1,
 	"grdSpotPitch":21.5,
 	"_grdUseImageOptions":"Last, First, FirstLast, All, EXPOSURE_CYCLE",
-	"grdUseImage":"First",
+	"grdUseImage":"Last",
     "pgMode":"quantification",
     "arraylayoutfile":"/mcr/exe/test_data/631158404_631158405_631158406 86312 Array Layout.txt",
 	"outputfile":"/mcr/exe/test_params/output_test_quant.txt",

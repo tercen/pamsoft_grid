@@ -120,7 +120,7 @@ end
 
 params.image_grid = Igrid;
 params.image_seg  = Iseg;
-
+params.images = I;
 if rescale
     rsf     = params.gridImageSize./size(Igrid);
     params  = pg_pp_rescale(params, rsf(1));

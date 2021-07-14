@@ -41,15 +41,18 @@ spotPitch = round(spotPitch);
 params = pg_seg_set_background_mask(params, size(I));
 % s      = repmat(oS, length(cx(:)), 1);
 
-
-spot        = pg_seg_create_spot_structure(params);
-params.spots = repmat(spot, length(cx(:)), 1);
+if ~isfield( params, 'spots' )
+    spot        = pg_seg_create_spot_structure(params);
+    params.spots = repmat(spot, length(cx(:)), 1);
+    disp('empty');
+end
 
 for i = 1:length(cx(:))
 %         s(i) = oS;
 %         s(i).initialMidpoint = [cx(i), cy(i)];
         
         params.spots(i).initialMidpoint = [cx(i), cy(i)];
+%         params.spots(i).finalMidpoint   = segFinalMidPoint;
         
         delta = 2;        
         xLocal = round(xLu(i) + [0, 2*spotPitch]);
@@ -95,7 +98,7 @@ for i = 1:length(cx(:))
             [x0, y0, r, nChiSqr] = pg_seg_rob_circ_fit(x,y);
             % calculate the difference between area midpoint and fitted midpoint 
             %s(i).finalMidpoint = [x0, y0];
-            params.spots(i).finalMidpoint = [x0, y0];
+%             params.spots(i).finalMidpoint = [x0, y0];
             
 %             mpOffset = [x0,y0] - s(i).initialMidpoint;
             mpOffset = [x0, y0] - params.spots(i).initialMidpoint;
@@ -131,8 +134,12 @@ for i = 1:length(cx(:))
         
         params.spots(i).bsSize = size(Ilocal);
         params.spots(i).bsTrue = find(Ilocal);
+
+
+        
         params.spots(i) = pg_seg_translate_background_mask( params.spots(i), ...
                         [x0, y0], size(I) );
+
         params.spots(i).finalMidpoint = [x0, y0];
         
 end

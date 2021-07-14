@@ -88,18 +88,57 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     
 
     if exitCode == 0
-        pg_seg_segment_image(params);
+        [params, exitCode] = pg_seg_segment_image(params);
     end
-%         pg_preprocess_images(params);
-%         params
-%         qt = analyzeimageseries(params.sorted_imageslist);
-%         qt
+    
+    
+    if exitCode == 0
+        [params, exitCode] = pg_qnt_quantify(params);  
+    end
+    
+    
+    if exitCode == 0
+        
+%         flags = checkQuantification(params);
+         [params, exitCode] = pg_qnt_check_quantification(params);
+    end
     
 
+    
+    
+    if exitCode == 0
+        idxUnsort(params.grdSortOrder) = 1:length(params.grdSortOrder);
+        params.quant  =  params.quant(:, idxUnsort);
+        I             = params.images(:,:,idxUnsort);
+        expTime       = params.expTime(idxUnsort);
+        cycles        = params.cycles(idxUnsort);
+        
+    end
+    
+    [~, qTypes, ~] = pg_qnt_parse_results(params);
 
-%     params
+    %permute qTypes from: Spot-QuantitationType-Array 
+    % % to : Array-Spot-QuantitationType
+    qTypes = permute(qTypes, [3,1,2]);
+    if 1 == 1 % @TODO Pass this as parameter
+        if length(unique(cycles))> 1
+            x = cycles;
+        else
+            x = exp;
+        end
+        qTypes = permute(qTypes, [1,3,2]);
+        params.qTypes= qTypes;
+        hViewer = presenter(I, params, x);
+        
+%         hViewer = showInteractive(stateQuantification, I, x);
+        set(hViewer, 'Name', 'PamGridViewer');
+        if 1 == 1 %qntShowPamGridViewer == 1
+            uiwait(hViewer);
+        end
+    end
+    
 end
-
+    
 
 
 fprintf('Program finished with error code %d\n', exitCode);
