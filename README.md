@@ -54,12 +54,6 @@ docker run --rm \
       tercen/mcr:R2020b \
       /mcr/docker/compile_docker 
  
-docker run --rm \
-      -v $PWD/standalone:/mcr/exe \
-      -v $PWD/test:/test \
-      tercen/mcr:R2020b \
-      /mcr/exe/pamsoft_grid \
-      --param-file=/test/input/input_params.json
 
 =======
 # sudo rm test/output/output.txt
@@ -69,13 +63,13 @@ docker run --rm \
 docker run --rm \
       -v $PWD/standalone:/mcr/exe \
       -v $PWD/test:/test \
-      -e "DISPLAY=:0" -v /tmp/.X11-unix:/tmp/.X11-unix \
       tercen/mcr:R2020b \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params.json
      
 # quantification 
 docker run --rm \
+      -e "DISPLAY=:0" -v /tmp/.X11-unix:/tmp/.X11-unix \
       -v $PWD/standalone:/mcr/exe \
       -v $PWD/test:/test \
       tercen/mcr:R2020b \
