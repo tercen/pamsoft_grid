@@ -105,7 +105,7 @@ function params = pg_io_get_default_params(params)
     params.qntSeriesMode        = 'Fixed'; %Fixed, AdaptGlobal
     params.qntSaturationLimit   = -1 + 2^16;
     params.qntOutlierMethod     = 'iqrBased'; % none, iqrBased
-    params.qntOutlierMeasure    = 1.5;
+    params.qntOutlierMeasure    = 1.75;
     params.qntShowPamGridViewer = 'no';
     
     
@@ -116,6 +116,7 @@ function params = pg_io_get_default_params(params)
     params.outputfile = '';
     params.imageslist = '';
     params.dbgPrintOutput = 'no';
+    params.dbgShowPresenter = 'no';
 
    
     

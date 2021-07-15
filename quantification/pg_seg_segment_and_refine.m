@@ -1,9 +1,10 @@
 % function [q, spotPitch, mp] = pg_qnt_segment_and_refine(pgr, I, x, y, rot, asRef)
 function [params, spotPitch, mp] = pg_seg_segment_and_refine(params, x, y, asRef)
 % Segments and attempts to refine the spotpitch
-% if nargin == 5
-%     asRef = false;
-% end
+if nargin == 3
+    asRef = false;
+end
+
 q         = [];
 spotPitch = [];
 mp        = [];
@@ -28,8 +29,7 @@ end
 maxDelta  = 0.3;
 spotPitch = params.grdSpotPitch; %get(pgr.oArray, 'spotPitch');
 
-% From the test script
-% 291.5000  372.0039
+
 mp   = pg_mid_point(params, x,y);
 
 fxdx       = params.grdXFixedPosition;
@@ -95,7 +95,9 @@ while delta > maxDelta
     delta        = abs(refSpotPitch - spotPitch);
     
     mp = pg_mid_point(arrayRefined, xPos, yPos);
-
+    params.segOutliers = zeros(length(bUse), 1);
+    % Within pg_seg_refine_pitch, outliers are calculated 
+    params.segOutliers(bUse(2:end)) = arrayRefined.segOutliers;
     % calculate array coordinates based on refined pitch
 %     [xr,yr] = coordinates(arrayRefined, mp, rot);
      [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined,mp, params.grdRotation);

@@ -40,9 +40,26 @@ docker run --rm -ti \
 
 # clean up output if necessary
 # sudo rm test/output/output.txt
+<<<<<<< HEAD
+
+# For compilation, though it raises an error (cannot find some compiler libs)
+docker run --rm \
+      -v $PWD/grid:/mcr/grid \
+      -v $PWD/io:/mcr/io \
+      -v $PWD/util:/mcr/util \
+      -v $PWD/standalone:/mcr/standalone \
+      -v $PWD/quantification:/mcr/quantification \
+      -v $PWD/main:/mcr/main \
+      -v $PWD/docker:/mcr/docker \
+      tercen/mcr:R2020b \
+      /mcr/docker/compile_docker 
+ 
+
+=======
 # sudo rm test/output/output.txt
   
 # gridding
+>>>>>>> 5ba7b64b5fa64bb574c029828f3ad8fdea447718
 docker run --rm \
       -v $PWD/standalone:/mcr/exe \
       -v $PWD/test:/test \
@@ -52,11 +69,14 @@ docker run --rm \
      
 # quantification 
 docker run --rm \
+      -e "DISPLAY=:0" -v /tmp/.X11-unix:/tmp/.X11-unix \
       -v $PWD/standalone:/mcr/exe \
       -v $PWD/test:/test \
       tercen/mcr:R2020b \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params_quant.json
+
+
 
 ```
 

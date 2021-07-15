@@ -7,6 +7,7 @@
 	"_grdUseImageOptions":"Last, First, FirstLast, All, EXPOSURE_CYCLE",
 	"grdUseImage":"Last",
     "pgMode":"grid",
+    "dbgShowPresenter":"yes",
     "arraylayoutfile":"/test/evolve_images/data1/631158404_631158405_631158406 86312 Array Layout.txt",
 	"outputfile":"/test/output/output.txt",
     "imageslist":[  "/test/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T10_P94_I157_A30.tif",

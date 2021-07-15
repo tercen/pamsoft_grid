@@ -16,7 +16,7 @@ if isempty(params.grdYOffset)
 end
 
 if nargin < 3
-    rotation = params.grdRot;
+    rotation = params.grdRotation;
 end
 
 if isempty(params.grdSpotPitch)

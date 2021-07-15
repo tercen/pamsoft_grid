@@ -47,6 +47,7 @@ switch params.segMethod
 %         sOut = repmat(s, length(cx(:)),1);
         spot        = pg_seg_create_spot_structure(params);
         params.spots = repmat(spot, length(cx(:)), 1);
+%         params.segOutliers = zeros(length(cx(:)), 1);
         if any(~bFxd)
             params.spots(~bFxd) = pg_seg_segment_by_edge(params, I, cx(~bFxd), cy(~bFxd), rotation);
         end
