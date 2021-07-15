@@ -19,7 +19,7 @@ r =     params.grdRow;
 c =     params.grdCol;
 
 if (~all(r>0) & ~all(r<0)) | (~all(c>0) & ~all(c<0) )
-    warning('cannot simultaneously refine pitch for pos and neg index arrays, keeping positive index only')
+    fprintf('[WARNING] Cannot simultaneously refine pitch for pos and neg index arrays, keeping positive index only\n');
     bUse = r > 0 & c > 0; 
 else
     bUse = true(size(r));
@@ -31,6 +31,7 @@ c = abs(c(isRef & bUse));
 xPos = xPos(isRef & bUse);
 yPos = yPos(isRef & bUse);
 params.segOutliers = [];
+
 if any(isRef & bUse)
     dr = r(2:end)-r(1);
     dc = c(2:end)-c(1);
@@ -39,7 +40,6 @@ if any(isRef & bUse)
     pitch = sqrt( (dx.^2 + dy.^2)./(dr.^2 + (aYX*dc).^2) );
 
     if length(pitch) > 1
-%         bOut = detect(outlier, pitch(:));
         bOut = pg_seg_detect_outlier(pitch(:), params);
         params.grdSpotPitch = mean(pitch(~bOut));
         params.segOutliers = bOut;

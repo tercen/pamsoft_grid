@@ -3,13 +3,14 @@ function [params, exitCode] = pg_io_read_params_json(params, jsonFile)
 
     if strcmpi(jsonFile, 'default')
         params = pg_io_get_default_params(params);
+        
         return
     end
     
     
     if ~exist(jsonFile, 'file')
         exitCode = -1;
-        pg_error_message(exitCode, jsonFile, 'pg_io_read_params_json');
+        pg_error_message(exitCode, jsonFile);
         return
     end
 
@@ -118,6 +119,7 @@ function params = pg_io_get_default_params(params)
     params.dbgPrintOutput = 'no';
     params.dbgShowPresenter = 'no';
 
+    params.grdPrivate  = [];
    
     
 end

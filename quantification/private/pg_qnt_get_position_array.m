@@ -20,22 +20,22 @@ elseif  isequal(keepType, '~isreference')
 elseif islogical(keepType)
     bKeep = keepType;
 else
-%     error('invalid value for keepType')
     exitCode = -201;
+    pg_error_message(exitCode);
     return;
 end
 
 bKeep = logical(bKeep);
 
 subParams = params;
-subParams.grdIsReference = params.grdIsReference(bKeep);
-subParams.grdRow = params.grdRow(bKeep);
-subParams.grdCol = params.grdCol(bKeep);
-subParams.grdXOffset = params.grdXOffset(bKeep);
-subParams.grdYOffset = params.grdYOffset(bKeep);
+subParams.grdIsReference    = params.grdIsReference(bKeep);
+subParams.grdRow            = params.grdRow(bKeep);
+subParams.grdCol            = params.grdCol(bKeep);
+subParams.grdXOffset        = params.grdXOffset(bKeep);
+subParams.grdYOffset        = params.grdYOffset(bKeep);
 subParams.grdXFixedPosition = params.grdXFixedPosition(bKeep);
 subParams.grdYFixedPosition = params.grdYFixedPosition(bKeep);
-subParams.qntSpotID = params.qntSpotID(bKeep);
+subParams.qntSpotID         = params.qntSpotID(bKeep);
 
 end
     

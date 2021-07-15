@@ -1,13 +1,8 @@
 function params = pg_seg_set_background_mask(params,imSize)
 
-if ~isfield(params, 'spots')
-    % @TODO Error message
-    return;
-end
-
 for i = 1:length(params.spots)
     spot = params.spots(i);
-    % function s = setBackgroundMasks
+    
     spotPitch = spot.grdSpotPitch;
 
     if ~isfield(spot, 'finalMidpoint') || isempty(spot.finalMidpoint)

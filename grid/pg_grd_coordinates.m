@@ -21,7 +21,6 @@ end
 
 if isempty(params.grdSpotPitch)
     exitCode = -11;
-%     error('array property spotPitch is not defined')
     pg_error_message(exitCode, 'grdSpotPitch');
     return;
 end

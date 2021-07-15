@@ -1,5 +1,5 @@
 function [params, exitCode] = pg_io_read_images_list(params)
-exitCode = 0;
+    exitCode = 0;
 
     if ~isfield( params, 'imageslist' )
         exitCode = -3;
@@ -83,7 +83,10 @@ exitCode = 0;
 
     elseif bUseAllImages == 1
         % @TODO Find the use cases where bUseAllImages is set to 0 or not
-        error('Could not find embedded image information for use with ''useImage'' option ''All''');
+        exitCode = -22;
+        pg_error_message(exitCode);
+        return;
+
     end
 
     

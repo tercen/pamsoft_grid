@@ -24,20 +24,13 @@ function [params, exitCode] = pg_io_read_in_gridding_results(params)
         return
     end
 
-    
+    inParams   = params;
     tblColumns = gridTable.Properties.VariableNames;
     
     for k = 1:length(tblColumns)
         params.(tblColumns{k}) = gridTable.(tblColumns{k});
     end
-    params.grdRotation = params.grdRotation(1); % All values are the same, and this is not needed
-%     
-%     params.grdRow            = gridTable.grdRow;
-%     params.grdCol            = gridTable.grdCol;
-%     params.grdXOffset        = gridTable.grdXOffset;
-%     params.grdYOffset        = gridTable.grdYOffset;
-%     params.grdXFixedPos            = gridTable.grdXFixedPosition;
-%     params.grid.y            = gridTable.grdYFixedPosition;
-%     params.qntSpotID         = gridTable.qntSpotID;
-%     params.grdIsReference    = gridTable.grdIsReference;
+    
+    params.grdRotation = params.grdRotation(1); 
+    
 end
