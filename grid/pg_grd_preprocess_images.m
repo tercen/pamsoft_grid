@@ -120,18 +120,17 @@ end
 
 params.image_grid = Igrid;
 params.image_seg  = Iseg;
-params.images = I;
+params.images     = I;
+
 if rescale
     rsf     = params.gridImageSize./size(Igrid);
     params  = pg_pp_rescale(params, rsf(1));
-    % 
-    % 
-    % % Igrid = getPrepImage(oP, imresize(I, params.gridImageSize));
-    Igrid = pg_pp_fun(params, imresize(Igrid, params.gridImageSize));
-    % 
+
+    Igrid   = pg_pp_fun(params, imresize(Igrid, params.gridImageSize));
+     
     params.image_grid_preproc = Igrid;
     params.rsf = rsf;
-    % 
+     
     params = pg_rescale(params, rsf);
 end
 

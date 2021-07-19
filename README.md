@@ -20,8 +20,7 @@ From the standalone folder
 ```shell
 # Compilation using docker image, TODO 
 docker run -it --rm \
-      -v $PWD:/pamsoft_grid \
-      mathworks/matlab:r2021a
+      mathworks/matlab:r2021a \
       bash
    
 ```
@@ -52,7 +51,7 @@ docker run --rm \
       -v $PWD/main:/mcr/main \
       -v $PWD/docker:/mcr/docker \
       tercen/mcr:R2020b \
-      /mcr/docker/compile_docker 
+      /mcr/docker/run_compile_docker.sh /opt/mcr/v99/ 
  
 
 =======

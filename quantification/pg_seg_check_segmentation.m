@@ -2,7 +2,6 @@
 function spotFlag = pg_seg_check_segmentation(params, maxOffset)
 %function spotFlag = checkSegmentation(sqa, oS)
 % returns 0 when OK, 1, when not OK, 2, when empty
-% sstr = get(oS);
 sstr     = params.spots;
 spotFlag = zeros(size(sstr));
 

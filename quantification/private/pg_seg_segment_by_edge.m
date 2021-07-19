@@ -1,6 +1,6 @@
 function spots = pg_seg_segment_by_edge(params, I, cx, cy, ~)
-spotPitch = params.grdSpotPitch; %oS.spotPitch;
-% spots = [];
+spotPitch = params.grdSpotPitch;
+
 
 %  get the left upper coordinates and right lower coordinates
 xLu = round(cx - spotPitch);
@@ -36,23 +36,19 @@ I(imxLu:imxRl, imyLu:imyRl) = J;
 pixAreaSize = params.segAreaSize * spotPitch;
 pixOff = round(max(spotPitch -0.5*pixAreaSize,0));
 spotPitch = round(spotPitch);
+
 % preallocate the array of segmentation objects
-% oS = setBackgroundMask(oS, size(I));
 params = pg_seg_set_background_mask(params, size(I));
-% s      = repmat(oS, length(cx(:)), 1);
+
+
 
 if ~isfield( params, 'spots' )
-    spot        = pg_seg_create_spot_structure(params);
+    spot         = pg_seg_create_spot_structure(params);
     params.spots = repmat(spot, length(cx(:)), 1);
-    disp('empty');
 end
 
 for i = 1:length(cx(:))
-%         s(i) = oS;
-%         s(i).initialMidpoint = [cx(i), cy(i)];
-        
         params.spots(i).initialMidpoint = [cx(i), cy(i)];
-%         params.spots(i).finalMidpoint   = segFinalMidPoint;
         
         delta = 2;        
         xLocal = round(xLu(i) + [0, 2*spotPitch]);
@@ -84,7 +80,6 @@ for i = 1:length(cx(:))
             end
             [x,y] = find(Ilocal);
             % store the current area left upper
-%             s(i).bsLuIndex = [xLocal(1), yLocal(1)];
             params.spots(i).bsLuIndex = [xLocal(1), yLocal(1)];
             if length(x) < params.segMinEdgePixels %oS.minEdgePixels
                 % when the number of foreground pixels is too low, abort
@@ -97,12 +92,9 @@ for i = 1:length(cx(:))
             % fit a circle to the foreground pixels
             [x0, y0, r, nChiSqr] = pg_seg_rob_circ_fit(x,y);
             % calculate the difference between area midpoint and fitted midpoint 
-            %s(i).finalMidpoint = [x0, y0];
-%             params.spots(i).finalMidpoint = [x0, y0];
-            
-%             mpOffset = [x0,y0] - s(i).initialMidpoint;
             mpOffset = [x0, y0] - params.spots(i).initialMidpoint;
             delta = norm(mpOffset);   
+            
             % shift area according to mpOffset for next iteration,
             % the loop terminates if delta converges to some low value.
             xLocal    = round(xLocal + mpOffset(1));
@@ -117,9 +109,6 @@ for i = 1:length(cx(:))
         end
         Ilocal = false(size(Ilocal));
         if spotFound                   
-%             s(i).diameter = 2*r;
-%             s(i).chisqr = nChiSqr;
-            
             params.spots(i).diameter = 2*r;
             params.spots(i).chisqr   = nChiSqr;
             
@@ -127,15 +116,8 @@ for i = 1:length(cx(:))
             Ilocal = roipoly(Ilocal, yFit, xFit);    
         end
         
-%         s(i).bsSize    = size(Ilocal);
-%         s(i).bsTrue    = find(Ilocal);
-%         s(i) = translateBackgroundMask(s(i),[x0,y0], size(I));
-%         s(i).finalMidpoint = [x0, y0];
-        
         params.spots(i).bsSize = size(Ilocal);
         params.spots(i).bsTrue = find(Ilocal);
-
-
         
         params.spots(i) = pg_seg_translate_background_mask( params.spots(i), ...
                         [x0, y0], size(I) );

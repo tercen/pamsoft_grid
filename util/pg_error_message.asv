@@ -21,13 +21,14 @@ function pg_error_message(errorCode, varargin)
     end
     
     if ~isempty(errMsg1)
-        fprintf('An ERROR (error code %d) occurred at: \n', errorCode);
+        fprintf('An error (error code %d) occurred at: \n', errorCode);
         fprintf('[FILE STACK]\n%s\n', errMsg1);
         fprintf('[FUNCTION STACK]\n%s\n', errMsg2);
     end
     
     errMsg = errMap(errorCode);
     
+
 
     pIdx = 1;
     for i = 1:length(varargin)
@@ -69,10 +70,7 @@ function errMap = pg_create_error_map()
     
     errMap(-21) = 'None of the reference spots were properly found.';
     errMap(-22) = 'Could not find embedded image information for use with useImage option All.';
-    errMap(-23) = 'Array layout for quantification seems to differ from the one used for gridding.';
-    errMap(-24) = 'The grid must include at least 2 rows and two columns, use dummy spots if necessary.';
-    
-    errMap(-201) = '(Internal Error) Invalid value for keepType';
+    errMap(-23) = 'Array layout for quantification seems to differ.';
     
     errMap(-1000) = 'Invalid command line argument passed. Expected pamsoft_grid --param-file=/path/to/paramfile.json';
     

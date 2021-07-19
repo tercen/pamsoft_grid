@@ -28,9 +28,7 @@ for k = 1:size(quant,2)
         %         else
         %             bOut = true;
         %         end
-        %         idxSignal = get(oq(i).oSegmentation, 'bsTrue'); % foreground pixel index
         idxSignal = spot.bsTrue;
-        %         idxBackground = get(oq(i).oSegmentation, 'bbTrue');
         idxBackground = spot.bbTrue;
         
         
@@ -38,7 +36,6 @@ for k = 1:size(quant,2)
         if ~isempty(idxSignal)
             sigPix = I(idxSignal); % vector of pixels making up the spot
             if bOut
-                %                 [iOutSignal, sigLimits] = detect(oq(i).oOutlier, double(sigPix));
                 [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
             else
                 iOutSignal = false(size(sigPix));
@@ -46,11 +43,7 @@ for k = 1:size(quant,2)
             quant(i,k).medianSignal = median(sigPix(~iOutSignal));
             quant(i,k).meanSignal = mean(sigPix(~iOutSignal));
             
-%             if i == 148
-%                fprintf('%.5f\n',mean(sigPix(~iOutSignal)));
-%              end
-            
-%             legacy = load('/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/legacy.mat');
+
             quant(i,k).sumSignal  = sum(sigPix(~iOutSignal));
             % As of R2007A std does not support integer data
             quant(i,k).stdSignal = std(single(sigPix(~iOutSignal)));
@@ -63,7 +56,6 @@ for k = 1:size(quant,2)
             bgPix = I(idxBackground);
             
             if bOut
-                %                 [iOutBackground, bgLimits] = detect(oq(i).oOutlier, double(bgPix));
                 [iOutBackground, ~, ~] = pg_seg_detect_outlier(double(bgPix), params);
             else
                 iOutBackground = false(size(bgPix));
@@ -111,34 +103,6 @@ end
 
 params.quant = quant;
 
-% Parse results
-
-
-% 
-% qTable =    {   'Row'               , [oQ.arrayRow]'; 
-%                 'Column'            , [oQ.arrayCol]'; 
-%                 'Mean_SigmBg'       , [oQ.meanSignal]' - [oQ.meanBackground]';
-%                 'Median_SigmBg'     , double([oQ.medianSignal]')-double([oQ.medianBackground]');
-%                 'Rse_MedianSigmBg'  , sqrt(([oQ.rseSignal]').^2 + ([oQ.rseBackground]').^2);
-%                 'Mean_Signal'       , [oQ.meanSignal]'; 
-%                 'Median_Signal'     , [oQ.medianSignal]'; 
-%                 'Std_Signal'        , [oQ.stdSignal]'; 
-%                 'Sum_Signal'        , [oQ.sumSignal]';
-%                 'Rse_Signal'        , [oQ.rseSignal]';
-%                 'Mean_Background'   , [oQ.meanBackground]'; 
-%                 'Median_Background' , [oQ.medianBackground]'; 
-%                 'Std_Background'    , [oQ.stdBackground]'; 
-%                 'Sum_Background'    , [oQ.sumBackground]';
-%                 'Rse_Background'    , [oQ.rseBackground]';
-%                 'Signal_Saturation' , [oQ.signalSaturation]';
-%                 'Fraction_Ignored'  , [oQ.fractionIgnored]'; 
-%                 'Diameter'          , diameter;
-%                 'X_Position'        , xPos;
-%                 'Y_Position'        , yPos;
-%                 'Position_Offset'   , d; 
-%                 'Empty_Spot'        , [oQ.isEmpty]';  
-%                 'Bad_Spot'          , [oQ.isBad]';
-%                 'Replaced_Spot'      ,[oQ.isReplaced]'};
 
 end
 
