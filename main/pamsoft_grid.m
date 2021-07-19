@@ -110,11 +110,8 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
         params.qTypes= qTypes;
         hViewer = presenter(I, params, x);
         
-%         hViewer = showInteractive(stateQuantification, I, x);
         set(hViewer, 'Name', 'PamGridViewer');
-%         if 1 == 1 %qntShowPamGridViewer == 1
         uiwait(hViewer);
-%         end
     end
     
 end

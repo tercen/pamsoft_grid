@@ -10,11 +10,11 @@ if ~isequal(size(cx),size(cy))
 end
 
 
-if min(size(cx)) < 2
-    exitCode = -24;
-    pg_error_message(exitCode);
-    return;
-end
+% if min(size(cx)) < 2
+%     exitCode = -24;
+%     pg_error_message(exitCode);
+%     return;
+% end
 
 
 % From analyzeImages.m when creating the preprocess object

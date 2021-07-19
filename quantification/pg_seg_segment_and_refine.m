@@ -51,7 +51,7 @@ while delta > maxDelta
     
     [params, exitCode] = pg_seg_segment(params, I, x, y, bFixedSpot, params.grdRotation);
     
-    if exitCode == 0
+    if exitCode < 0
         return
     end
     

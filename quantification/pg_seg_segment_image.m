@@ -78,7 +78,7 @@ if any(~isRef)
 
     [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs);
     
-    if exitCode == 0
+    if exitCode < 0
         return
     end
     

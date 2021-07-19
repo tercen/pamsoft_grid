@@ -20,6 +20,8 @@ d        = sqrt(sum(d.^2,2))/sp;
 diameter = [params.spots.diameter];
 
 for i = 1:nImg
+    
+    % here the qname, qvalue table is constructed
     qTable =    {   ...
         'Row'               , params.grdRow';
         'Column'            , params.grdCol';
@@ -81,8 +83,7 @@ for i = 1:nImg
         qTable{21,2}, ...
         qTable{22,2}, ...
         qTable{23,2}, ...
-        qTable{24,2}, ...
-        repmat(imageName, nSpots, 1));
+        qTable{24,2});
     %         qNames_=qNames;
     %     qNames{1}='ROW';
     qNames{end+1} = 'ImageName';
