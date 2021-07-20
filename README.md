@@ -14,16 +14,15 @@ docker rm -f matlab
 
 ```shell
 docker run -it --rm \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v $PWD/grid:/mcr/grid \
-      -v $PWD/io:/mcr/io \
-      -v $PWD/util:/mcr/util \
-      -v $PWD/standalone:/mcr/standalone \
-      -v $PWD/quantification:/mcr/quantification \
-      -v $PWD/main:/mcr/main \
-      -v $PWD/docker:/mcr/docker \
+      -v $PWD/grid:/pamsoft_grid/grid \
+      -v $PWD/io:/pamsoft_grid/io \
+      -v $PWD/util:/pamsoft_grid/util \
+      -v $PWD/standalone:/pamsoft_grid/standalone \
+      -v $PWD/quantification:/pamsoft_grid/quantification \
+      -v $PWD/main:/pamsoft_grid/main \
+      -v $PWD/docker:/pamsoft_grid/docker \
       --entrypoint=/bin/bash \
-      -w /mcr/docker \
+      -w /pamsoft_grid/docker \
        tercen/matlab:r2020b-4 \
        -i -c "matlab -batch build"
 ```       
