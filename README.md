@@ -1,48 +1,20 @@
-
-# Running the code
-
-Compilation command
+# Build matlab image
 
 ```shell
-mcc -m pamsoft_grid.m -d /path/to/standalone -o pamsoft_grid -R -nodisplay
-
+docker run -it -d --name matlab -p 5901:5901 -p 6080:6080 --shm-size=512M mathworks/matlab:r2020b -vnc
+# http://localhost:6080
+# sudo matlab
+# install matlab compile and image toolbox
+# 
+docker commit matlab tercen/matlab:r2020b-4
+docker rm -f matlab
 ```
- 
-From the standalone folder
-```shell
-./../pamsoft_grid.sh  --mode=grid --param-file=input_test_1.json --array-layout-file=631158404_631158405_631158406 86312 Array Layout.txt --images-list-file=image_list_test_1.txt --output-fileoutput_test_1.txt
-```
 
-
-
-```
+# Compile component
 
 ```shell
-# Compilation using docker image, TODO 
 docker run -it --rm \
-      mathworks/matlab:r2021a \
-      bash
-   
-```
-
-
-```shell
-# Get matlab runtime
-docker pull tercen/mcr:R2020b
-
-docker run --rm -ti \
-      -v $PWD/standalone/:/mcr/exe/ \
-      tercen/mcr:R2020b \
-      bash
-      
-# Run
-
-# clean up output if necessary
-# sudo rm test/output/output.txt
-<<<<<<< HEAD
-
-# For compilation, though it raises an error (cannot find some compiler libs)
-docker run --rm \
+      -v /var/run/docker.sock:/var/run/docker.sock \
       -v $PWD/grid:/mcr/grid \
       -v $PWD/io:/mcr/io \
       -v $PWD/util:/mcr/util \
@@ -50,23 +22,34 @@ docker run --rm \
       -v $PWD/quantification:/mcr/quantification \
       -v $PWD/main:/mcr/main \
       -v $PWD/docker:/mcr/docker \
-      tercen/mcr:R2020b \
-      /mcr/docker/run_compile_docker.sh /opt/mcr/v99/ 
- 
+      --entrypoint=/bin/bash \
+      -w /mcr/docker \
+       tercen/matlab:r2020b-4 \
+       -i -c "matlab -batch build"
+```       
+# Build docker
 
-=======
+```shell
+docker build -t tercen/pamsoft_grid .
+``` 
+
+# Run gridding
+
+```shell
+
 # sudo rm test/output/output.txt
-  
-# gridding
->>>>>>> 5ba7b64b5fa64bb574c029828f3ad8fdea447718
+# clean up output if necessary
+# sudo rm test/output/output.txt 
+ 
 docker run --rm \
-      -v $PWD/standalone:/mcr/exe \
       -v $PWD/test:/test \
-      tercen/mcr:R2020b \
+      tercen/pamsoft_grid:latest \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params.json
-     
-# quantification 
+```           
+# Run quantification 
+
+```shell
 docker run --rm \
       -e "DISPLAY=:0" -v /tmp/.X11-unix:/tmp/.X11-unix \
       -v $PWD/standalone:/mcr/exe \
@@ -74,98 +57,11 @@ docker run --rm \
       tercen/mcr:R2020b \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params_quant.json
-
-
-
 ```
-
-```shell
-# Compilation using docker image, TODO 
-docker run -it --rm \
-      -v $PWD:/pamsoft_grid \
-      mathworks/matlab:r2021a
-      bash
-   
-```
-
-
-# intro
-
-https://pamgene.com/technology/
-
-
-# Current usage
-
-
-```smalltalk
-
-anOperator := IDispatch progId: 'PamSoft_Grid4.analyze'
-anOperator grdFromFile: anArrayLayoutFile.
-aResult := anOperator analyzecycleserie: aListOfImagePath
-
-```
-
-pg_image_analysis/PamSoft_Grid/com/grdFromFile.m
-
-https://github.com/tercen/pg_image_analysis/blob/1b3e191210987687c4ae5fa6d623499acef99f1c/PamSoft_Grid/com/grdFromFile.m
-
-pg_image_analysis/PamSoft_Grid/com/analyzeimageseries.m
-
-https://github.com/tercen/pg_image_analysis/blob/1b3e191210987687c4ae5fa6d623499acef99f1c/PamSoft_Grid/com/analyzeimageseries.m
-
-
-
-# pamsoft_grid
-
-What needs to be specified ?
-
-- file format for input parameters
-- file format for input data
-- file format for output data
-- commands line params
-
-# Processing step
-
-image pre-processing
-
-griding
-
-
-
-segmentation
-
-quantification
-
-
+ 
 # Instrument specific parameters
 
 gridSpotPitch   21.5
+
 qntSaturationLimit   4095
 
-# Array layout
-
-Row
-Col
-Xoff
-Yoff
-
-reference spot have negative row and col
-
-# Griding
-
-```shell
-pamsoft_grid --mode=grid --param-file=xxx --array-layout-file=xxx --images-list-file=xxx --output-file=xxx
-```
-
-# Segmentation + Quantification
-
-Array layout
-
-Row
-Col
-xFixedPosition
-yFixedPosition
-
-```shell
-pamsoft_grid --mode=quantification --param-file=xxx --array-layout-file=xxx --images-list-file=xxx --output-file=xxx
-```
