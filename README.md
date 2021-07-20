@@ -13,7 +13,9 @@ docker rm -f matlab
 # Compile component
 
 ```shell
+ 
 docker run -it --rm \
+      -v $PWD/docker/startup.m:/opt/matlab/R2020b/toolbox/local/startup.m \
       -v $PWD/grid:/pamsoft_grid/grid \
       -v $PWD/io:/pamsoft_grid/io \
       -v $PWD/util:/pamsoft_grid/util \
@@ -46,7 +48,7 @@ docker run --rm \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params.json
 ```           
-# Run quantification 
+# Run quantification
 
 ```shell
 docker run --rm \
@@ -57,7 +59,7 @@ docker run --rm \
       /mcr/exe/pamsoft_grid \
       --param-file=/test/input/input_params_quant.json
 ```
- 
+
 # Instrument specific parameters
 
 gridSpotPitch   21.5
