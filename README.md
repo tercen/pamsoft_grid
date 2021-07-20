@@ -4,8 +4,8 @@
 docker run -it -d --name matlab -p 5901:5901 -p 6080:6080 --shm-size=512M mathworks/matlab:r2020b -vnc
 # http://localhost:6080
 # sudo matlab
-# install matlab compile and image toolbox
-# 
+# install matlab Compiler addon and Image_Processing_Toolbox and Statistics_and_Machine_Learning_Toolbox
+
 docker commit matlab tercen/matlab:r2020b-4
 docker rm -f matlab
 ```
