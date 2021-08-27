@@ -68,5 +68,5 @@ qntSaturationLimit   4095
 
 # Comparison of images used for gridding and segmentation modes
 
-Selected images in grid & quantification modes must have filenames (regardless of path and extension)
+Selected images in grid & quantification modes must have identical filenames (regardless of path and extension)
 
