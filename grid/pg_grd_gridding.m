@@ -31,7 +31,7 @@ if isempty(params.grdRow)
 end
 if isempty(params.grdCol)
 %     error('Parameter ''col'' has not been set.');
-    eexitCode = -11;
+    exitCode = -11;
     pg_error_message(exitCode, 'grdCol');
     
     return;
@@ -169,9 +169,6 @@ y(~y) = cy(~y);
 
 
 
-% [x,y,rot, ~] = pg_grid_find(params, Igrid);
-
-
 % scale back to the original size and return
 x = x/rsf(1);
 y = y/rsf(2);
@@ -182,8 +179,7 @@ x(x>size(params.image_grid,1)) = size(params.image_grid,1);
 y(y>size(params.image_grid,2)) = size(params.image_grid,2);
 
 
-% params.grdXFixedPosition = x;
-% params.grdYFixedPosition = y;
+
 params.gridX = x;
 params.gridY = y;
 

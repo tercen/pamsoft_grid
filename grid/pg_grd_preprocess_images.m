@@ -1,4 +1,4 @@
-function [params, exitCode] = pg_grd_preprocess_images(params, rescale)
+function [params, exitCode] = pg_grd_preprocess_images(params, rescale, checkImageUsed)
 exitCode = 0;
 
 params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
@@ -49,10 +49,22 @@ end
 
 
 
+if checkImageUsed 
+    
+    if ~isfield(params, 'grdImageNameUsed')
+        exitCode = -11;
+        pg_error_message(exitCode, 'grdImageNameUsed');
+        return
+    end
+    
+    gridImages = params.grdImageNameUsed;
+end
+
+
+
 % produce the segmentation image and the grid image
 uCycle = unique(cycles);
-% FROM oSpotQuantification 
-% oq.saturationLimit = 2^16 -1 ;
+
 sl     = params.qntSaturationLimit; %get(pgr.oSpotQuantification, 'saturationLimit');
 bLast  = cycles == uCycle(end);
 bFirst = cycles == uCycle(1);
@@ -65,6 +77,8 @@ else
     imageUse = params.grdUseImage;
 end
 
+
+
 switch imageUse
     case 'Last'
         Igrid = I(:,:,bLast);
@@ -72,7 +86,8 @@ switch imageUse
             Igrid = pg_combine_exposures(Igrid, expTime(bLast),sl);
         end
         Iseg = Igrid;
-        params.grdImageUsed = bLast;
+        params.grdImageUsed      = bLast;
+        params.grdImageNameUsed  = internal_create_image_used_string(params, bLast);
     case 'FirstLast'
         Igrid = I(:,:,bFirst);
         if sum(bFirst) > 1
@@ -82,15 +97,17 @@ switch imageUse
         if sum(bLast) > 1
             Iseg = pg_combine_exposures(Iseg, exp(bLast), sl);
         end
-        params.grdImageUsed = bLast | bFirst;
+        params.grdImageUsed      = bLast | bFirst;
+        params.grdImageNameUsed  = internal_create_image_used_string(params, bLast | bFirst);
     case 'First'
         Igrid = I(:,:,bFirst);
-        % @FIXME changed here from sum(bLast), which seemed inappropriate
+        % Changed here from sum(bLast), which seemed inappropriate
         if sum(bFirst) > 1
             Igrid = pg_combine_exposures(Igrid, exp(bFirst),sl);
         end
         Iseg = Igrid;
-        params.grdImageUsed = bFirst;
+        params.grdImageUsed      = bFirst;
+        params.grdImageNameUsed  = internal_create_image_used_string(params, bFirst);
     case 'Specific'
         ec = strsplit(params.grdUseImage, '_'  );
         e  = str2double(ec{1});
@@ -110,7 +127,8 @@ switch imageUse
         end
         Iseg = Igrid;
         
-        params.grdImageUsed = bEC;
+        params.grdImageUsed     = bEC;
+        params.grdImageNameUsed = internal_create_image_used_string(params, bEC);
     otherwise
         exitCode = -13;
         pg_error_message(exitCode, 'grdImageUse', params.grdUseImage);
@@ -121,6 +139,30 @@ end
 params.image_grid = Igrid;
 params.image_seg  = Iseg;
 params.images     = I;
+
+if checkImageUsed && exitCode == 0
+    quantImages = strsplit(params.grdImageNameUsed, ',' );
+    gridImages  = strsplit(gridImages{1}, ',' );
+    
+    imageFound  = zeros(length(quantImages), 1);
+    
+    for i = 1:length(quantImages)        
+        for j = 1:length(gridImages)
+            if strcmp(quantImages{i}, gridImages{j} )
+                imageFound(i) = 1;
+                break;
+            end
+        end
+    end
+    
+    if ~all(imageFound)
+        exitCode = -25;
+        pg_error_message(exitCode);
+    end
+else
+    params.grdImageNameUsed = repmat( params.grdImageNameUsed, size(params.grdRow, 1), 1);
+end
+
 
 if rescale
     rsf     = params.gridImageSize./size(Igrid);
@@ -136,3 +178,30 @@ end
 
                
 end
+
+
+function imgString = internal_create_image_used_string(params, idx)
+    sortedImages = params.imageslist(params.grdSortOrder);
+    imgString    = '';
+    
+    if length(idx) == 1
+        [~, f, ~] = fileparts( sortedImages{idx} );
+        imgString = f;
+    else
+        
+        idx = find(idx);
+        
+        comma = ',';
+        for i = 1:length(idx)
+            
+            
+            [~, f, ~] = fileparts( sortedImages{i} );
+            
+            if i == length(idx), comma = ''; end
+            
+            imgString = cat(2, imgString, f, comma);
+        end
+    end
+end
+
+

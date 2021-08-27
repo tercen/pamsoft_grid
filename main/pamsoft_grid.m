@@ -29,7 +29,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
     [params, exitCode] = pg_grd_read_layout_file(params, '#');
 
     if exitCode == 0
-        [params, exitCode] = pg_grd_preprocess_images(params, true);
+        [params, exitCode] = pg_grd_preprocess_images(params, true, false);
     end
 
     if exitCode == 0
@@ -43,7 +43,8 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
                         'grdRow', 'grdCol', ...
                         'grdXOffset', 'grdYOffset', ...
                         'grdXFixedPosition', 'grdYFixedPosition', ...
-                        'gridX', 'gridY', 'grdRotation'} );
+                        'gridX', 'gridY', 'grdRotation', ...
+                        'grdImageNameUsed'} );
     end
 
     
@@ -64,9 +65,9 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     
     % The image for gridding and segmentation must be the same, so run this
     % part again, though the rescaling part is not necessary (second
-    % argument)
+    % argument).
     if exitCode == 0
-        [params, exitCode] = pg_grd_preprocess_images(params, false);
+        [params, exitCode] = pg_grd_preprocess_images(params, false, true);
     end
     
 
@@ -100,7 +101,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     %permute qTypes from: Spot-QuantitationType-Array 
     % % to : Array-Spot-QuantitationType
     qTypes = permute(qTypes, [3,1,2]);
-    if strcmpi(params.dbgShowPresenter, 'yes') % @TODO Pass this as parameter
+    if strcmpi(params.dbgShowPresenter, 'yes') 
         if length(unique(cycles))> 1
             x = cycles;
         else
@@ -118,7 +119,7 @@ end
     
 
 
-fprintf('Program finished with error code %d\n', exitCode);
+fprintf('Program finished with code %d\n', exitCode);
 
 end % END of function pamsoft_grid
 
@@ -142,9 +143,6 @@ function [params, exitCode] = parse_arguments(argline)
         return
     end
 
-    % @TODO Create regex validation of the parameter passed to ensure the
-    % code below works with the expected format
-    
     nArgs     = length(argStrIdx);
 
     for i = 1:nArgs-1

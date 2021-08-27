@@ -53,7 +53,7 @@ function errMap = pg_create_error_map()
     errMap(-5) = 'Could not read image $1.';
     errMap(-6) = 'Error reading information from $1 ($2).';
     errMap(-7) = 'Invalid combination of input images: there are multiple images with both equal cycle and exposure time.';
-    errMap(-8) = 'Parameter arralyoutfile has not been set in $1.';
+    errMap(-8) = 'Parameter arraylayoutfile has not been set in $1.';
     errMap(-9) = 'The specified arraylayout file ($1) does not exist.';
     errMap(-10) = 'Could not open arraylayoutfile $1.';
     errMap(-11) = 'Property $1 has not been set or is empty.';
@@ -69,8 +69,11 @@ function errMap = pg_create_error_map()
     
     errMap(-21) = 'None of the reference spots were properly found.';
     errMap(-22) = 'Could not find embedded image information for use with useImage option All.';
-    errMap(-23) = 'Array layout for quantification seems to differ from the one used for gridding.';
+    errMap(-23) = 'Array layout for quantification differ from the one used for gridding.';
     errMap(-24) = 'The grid must include at least 2 rows and two columns, use dummy spots if necessary.';
+    
+    errMap(-25) = 'Images used in quantification mode are not the same used for gridding.';
+    
     
     errMap(-201) = '(Internal Error) Invalid value for keepType';
     
