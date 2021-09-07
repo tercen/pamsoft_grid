@@ -160,7 +160,7 @@ if checkImageUsed && exitCode == 0
         pg_error_message(exitCode);
     end
 else
-    params.grdImageNameUsed = repmat( params.grdImageNameUsed, size(params.grdRow, 1), 1);
+    params.grdImageNameUsed = cellstr(repmat( params.grdImageNameUsed, size(params.grdRow, 1), 1));
 end
 
 

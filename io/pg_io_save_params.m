@@ -20,8 +20,8 @@ function exitCode = pg_io_save_params(params, fields)
     
     
     for i = 1:nFields
+       
         if ~isfield( params, fields{i} )
- 
             exitCode = -18;
             pg_error_message(exitCode, fields{i});
             return;
@@ -38,28 +38,15 @@ function exitCode = pg_io_save_params(params, fields)
         end
     end
     
-%     paramsOut = struct;
-    
-%     outMatrix = zeros(lFields, length(fields) );
-    
+
     tbl = table();
     
     for i = 1:nFields
 
         tbl.(fields{i}) = params.(fields{i});
-%         paramsOut.(fields{i}) = params.(fields{i});
     end
     
-    
-%     jsonTxt = jsonencode(paramsOut);
-%     
-%     
-%     fid = fopen(params.outputfile,'wt');
-%     fprintf(fid, pg_io_json_prettyprint(jsonTxt));
-%     fclose(fid);
-    
-%     tbl = table(outMatrix);
-%     
+
     
     writetable(tbl, params.outputfile );
     

@@ -1,4 +1,4 @@
-{
+[{
 	"sqcMinDiameter":0.45,
 	"segEdgeSensitivity":[0, 0.01],
 	"qntSeriesMode":0,
@@ -6,9 +6,9 @@
 	"grdSpotPitch":21.5,
 	"_grdUseImageOptions":"Last, First, FirstLast, All, EXPOSURE_CYCLE",
 	"grdUseImage":"Last",
-    "pgMode":"quantification",
+    "pgMode":"grid",
     "arraylayoutfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/test/evolve_images/data1/631158404_631158405_631158406 86312 Array Layout.txt",
-	"outputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/output_quant.txt",
+	"outputfile":"/media/thiago/EXTRALINUX/Tercen/matlab/pamsoft_grid/output_quant.txt",
     "griddingoutputfile":"/media/thiago/EXTRALINUX/Upwork/code/pamsoft_grid/output_grid.txt",
 
 
@@ -31,5 +31,5 @@
 "/media/thiago/EXTRALINUX/Upwork/code/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P87_I133_A30.tif",
 "/media/thiago/EXTRALINUX/Upwork/code/evolve_images/data1/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P92_I145_A30.tif"]
 
-}
+}]
 

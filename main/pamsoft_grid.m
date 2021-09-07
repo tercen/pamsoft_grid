@@ -119,7 +119,12 @@ end
     
 
 
-fprintf('Program finished with code %d\n', exitCode);
+if exitCode ~= 0
+    
+    error('Program finished with code %d\n', exitCode);
+end
+
+
 
 end % END of function pamsoft_grid
 
