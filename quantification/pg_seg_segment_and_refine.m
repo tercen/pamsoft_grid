@@ -95,7 +95,8 @@ while delta > maxDelta
     % Within pg_seg_refine_pitch, outliers are calculated relative to the
     % first position, it seems
     params.segOutliers = zeros(length(bUse), 1);
-    params.segOutliers(bUse(2:end)) = arrayRefined.segOutliers;
+    % FIXME THIS is being ignored later on
+    %params.segOutliers(bUse(2:end)) = arrayRefined.segOutliers;
     
     % calculate array coordinates based on refined pitch
     [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined,mp, params.grdRotation);
