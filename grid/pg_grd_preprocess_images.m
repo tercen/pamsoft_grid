@@ -77,88 +77,99 @@ else
     imageUse = params.grdUseImage;
 end
 
+if checkImageUsed
+    % FIXME, this likely needs to go somewhere else
+     [Igrid, ets, ] = pg_io_read_grid_images(params, gridImages{1});
+     
+     if size(Igrid,3) > 1
+         Igrid = pg_combine_exposures(Igrid, ets, sl);
+     end
+     
+     Iseg = Igrid;
+    
+else
 
 
-switch imageUse
-    case 'Last'
-        Igrid = I(:,:,bLast);
-        if sum(bLast) > 1
-            Igrid = pg_combine_exposures(Igrid, expTime(bLast),sl);
-        end
-        Iseg = Igrid;
-        params.grdImageUsed      = bLast;
-        params.grdImageNameUsed  = internal_create_image_used_string(params, bLast);
-    case 'FirstLast'
-        Igrid = I(:,:,bFirst);
-        if sum(bFirst) > 1
-            Igrid = pg_combine_exposures(Igrid, exp(bFirst),sl);
-        end
-        Iseg = I(:,:,bLast);
-        if sum(bLast) > 1
-            Iseg = pg_combine_exposures(Iseg, exp(bLast), sl);
-        end
-        params.grdImageUsed      = bLast | bFirst;
-        params.grdImageNameUsed  = internal_create_image_used_string(params, bLast | bFirst);
-    case 'First'
-        Igrid = I(:,:,bFirst);
-        % Changed here from sum(bLast), which seemed inappropriate
-        if sum(bFirst) > 1
-            Igrid = pg_combine_exposures(Igrid, exp(bFirst),sl);
-        end
-        Iseg = Igrid;
-        params.grdImageUsed      = bFirst;
-        params.grdImageNameUsed  = internal_create_image_used_string(params, bFirst);
-    case 'Specific'
-        ec = strsplit(params.grdUseImage, '_'  );
-        e  = str2double(ec{1});
-        c  = str2double(ec{2});
-        
-        bEC = expTime == e & cycles == c;
-        
-        if ~any(bEC)
-            exitCode = -12;
-            pg_error_message(exitCode, e, c);
+    switch imageUse
+        case 'Last'
+            Igrid = I(:,:,bLast);
+            if sum(bLast) > 1
+                Igrid = pg_combine_exposures(Igrid, expTime(bLast),sl);
+            end
+            Iseg = Igrid;
+            params.grdImageUsed      = bLast;
+            params.grdImageNameUsed  = internal_create_image_used_string(params, bLast);
+        case 'FirstLast'
+            Igrid = I(:,:,bFirst);
+            if sum(bFirst) > 1
+                Igrid = pg_combine_exposures(Igrid, exp(bFirst),sl);
+            end
+            Iseg = I(:,:,bLast);
+            if sum(bLast) > 1
+                Iseg = pg_combine_exposures(Iseg, exp(bLast), sl);
+            end
+            params.grdImageUsed      = bLast | bFirst;
+            params.grdImageNameUsed  = internal_create_image_used_string(params, bLast | bFirst);
+        case 'First'
+            Igrid = I(:,:,bFirst);
+            % Changed here from sum(bLast), which seemed inappropriate
+            if sum(bFirst) > 1
+                Igrid = pg_combine_exposures(Igrid, exp(bFirst),sl);
+            end
+            Iseg = Igrid;
+            params.grdImageUsed      = bFirst;
+            params.grdImageNameUsed  = internal_create_image_used_string(params, bFirst);
+        case 'Specific'
+            ec = strsplit(params.grdUseImage, '_'  );
+            e  = str2double(ec{1});
+            c  = str2double(ec{2});
+
+            bEC = expTime == e & cycles == c;
+
+            if ~any(bEC)
+                exitCode = -12;
+                pg_error_message(exitCode, e, c);
+                return
+            end
+
+            Igrid = I(:,:,bEC);
+            if sum(bEC) > 1
+                Igrid = pg_combine_exposures(Igrid, expTime(bEC), sl);
+            end
+            Iseg = Igrid;
+
+            params.grdImageUsed     = bEC;
+            params.grdImageNameUsed = internal_create_image_used_string(params, bEC);
+        otherwise
+            exitCode = -13;
+            pg_error_message(exitCode, 'grdImageUse', params.grdUseImage);
             return
-        end
-        
-        Igrid = I(:,:,bEC);
-        if sum(bEC) > 1
-            Igrid = pg_combine_exposures(Igrid, expTime(bEC), sl);
-        end
-        Iseg = Igrid;
-        
-        params.grdImageUsed     = bEC;
-        params.grdImageNameUsed = internal_create_image_used_string(params, bEC);
-    otherwise
-        exitCode = -13;
-        pg_error_message(exitCode, 'grdImageUse', params.grdUseImage);
-        return
+    end
 end
-
 
 params.image_grid = Igrid;
 params.image_seg  = Iseg;
 params.images     = I;
 
 if checkImageUsed && exitCode == 0
-    quantImages = strsplit(params.grdImageNameUsed, ',' );
-    gridImages  = strsplit(gridImages{1}, ',' );
-    
-    imageFound  = zeros(length(quantImages), 1);
-    
-    for i = 1:length(quantImages)        
-        for j = 1:length(gridImages)
-            if strcmp(quantImages{i}, gridImages{j} )
-                imageFound(i) = 1;
-                break;
-            end
-        end
-    end
-    
-    if ~all(imageFound)
-        exitCode = -25;
-        pg_error_message(exitCode);
-    end
+%     quantImages = strsplit(params.grdImageNameUsed, ',' );
+%     gridImages  = strsplit(gridImages{1}, ',' );
+%     
+%     imageFound  = zeros(length(quantImages), 1);
+%     
+%     for i = 1:length(quantImages)        
+%         for j = 1:length(gridImages)
+%             if strcmp(quantImages{i}, gridImages{j} )
+%                 imageFound(i) = 1;
+%                 break;
+%             end
+%         end
+%     end
+%     
+%     if ~all(imageFound)
+%         exitCode = -25;
+%         pg_error_message(exitCode);
+%     end
 else
     params.grdImageNameUsed = cellstr(repmat( params.grdImageNameUsed, size(params.grdRow, 1), 1));
 end
