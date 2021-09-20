@@ -1,5 +1,7 @@
 function pamsoft_grid(arglist)
 
+fprint("Running build from 202109211730\n")
+
 [params, exitCode] = parse_arguments(arglist);
 
 if exitCode == 0
