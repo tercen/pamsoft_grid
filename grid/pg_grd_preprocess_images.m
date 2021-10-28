@@ -69,6 +69,11 @@ sl     = params.qntSaturationLimit; %get(pgr.oSpotQuantification, 'saturationLim
 bLast  = cycles == uCycle(end);
 bFirst = cycles == uCycle(1);
 
+
+
+%fprintf('First Image is cycle %d (%d) \n', uCycle(1), bFirst);
+%fprintf('Last Image is cycle %d (%d) \n', uCycle(end), bLast);
+
 % For the case where an image with specific Exposure time and cycle will be
 % used 
 if ~isempty( strfind(params.grdUseImage, '_') )
@@ -89,7 +94,7 @@ if checkImageUsed
     
 else
 
-
+    
     switch imageUse
         case 'Last'
             Igrid = I(:,:,bLast);
@@ -145,6 +150,7 @@ else
             pg_error_message(exitCode, 'grdImageUse', params.grdUseImage);
             return
     end
+
 end
 
 params.image_grid = Igrid;
@@ -192,8 +198,9 @@ end
 
 
 function imgString = internal_create_image_used_string(params, idx)
-    sortedImages = params.imageslist(params.grdSortOrder);
+    sortedImages = params.imageslist;
     imgString    = '';
+    
     
     if length(idx) == 1
         [~, f, ~] = fileparts( sortedImages{idx} );
@@ -206,7 +213,9 @@ function imgString = internal_create_image_used_string(params, idx)
         for i = 1:length(idx)
             
             
-            [~, f, ~] = fileparts( sortedImages{i} );
+            [~, f, ~] = fileparts( sortedImages{idx(i)} );
+            
+           
             
             if i == length(idx), comma = ''; end
             
