@@ -10,6 +10,8 @@ for i=1:length(sstr)
     mp0 = sstr(i).initialMidpoint;
     mp1 = sstr(i).finalMidpoint;
     sp  = sstr(i).grdSpotPitch;
+    
+
     d   = sstr(i).diameter/sp;
     
     if ~isempty(mp1) && ~isempty(d)

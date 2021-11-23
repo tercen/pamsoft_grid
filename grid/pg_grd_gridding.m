@@ -82,6 +82,20 @@ y = params.grdYFixedPosition;
 if ~any(~params.grdXFixedPosition) & ~any(~params.grdYFixedPosition)
     params.mx  =  pg_mid_point(params, params.grdXFixedPosition, params.grdYFixedPosition);
     params.rot = 0;
+    
+    
+    params.gridX = x;
+    params.gridY = y;
+
+
+    % This is used to simplify saving. Rotation then is picked as first value
+    % later on
+    params.grdRotation       = repmat(params.rot, length(x), 1);
+    params.grdMx             = params.mx;
+
+    params.grdSpotPitch      = params.grdSpotPitch ./ params.rsf ;
+    params.grdSpotSize       = params.grdSpotSize / mean(params.rsf);
+    
     return
 end
 
@@ -189,8 +203,10 @@ params.gridY = y;
 params.grdRotation       = repmat(rot, length(x), 1);
 params.grdMx             = mx;
 
-params.grdSpotPitch      = params.grdSpotPitch ./ params.rsf ;
-params.grdSpotSize       = params.grdSpotSize / mean(params.rsf);
+params.calcSpotPitch = params.grdSpotPitch ./ params.rsf;
+
+params.grdSpotPitch      = params.grdSpotPitch ./ mean(params.rsf);
+params.grdSpotSize       = params.grdSpotSize ./ mean(params.rsf);
 
 
 

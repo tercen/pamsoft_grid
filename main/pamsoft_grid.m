@@ -1,8 +1,12 @@
 function pamsoft_grid(arglist)
 
-fprintf("Running build from 202109211730\n")
+%fprintf("Running build from 202109211730\n")
+
 
 [params, exitCode] = parse_arguments(arglist);
+
+
+
 
 if exitCode == 0
     % Populate with default values
@@ -10,17 +14,20 @@ if exitCode == 0
     
 end
 
+
+
 if exitCode == 0
     % Overwrite specific fields with user-defined values
     [params, exitCode] = pg_io_read_params_json(params,  params.paramfile);
 end
 
 
+
+
 % This is used both for grid and quantification modes
 if exitCode == 0
     [params, exitCode] = pg_io_read_images_list(params);
 end
-
 
 
 
@@ -34,18 +41,54 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         [params, exitCode] = pg_grd_preprocess_images(params, true, false);
     end
 
-    if exitCode == 0
-        [params, exitCode] = pg_grd_gridding(params);
-    end
+
     
-   
     if exitCode == 0
+%             preprocParams = params;
+            
+            [params, exitCode] = pg_grd_gridding(params);
+            
+            [inParams, ~] = pg_io_read_params_json(params,  params.paramfile);
+
+            % Override a few internal fields
+            tmpParams = params;
+            params    = inParams;
+            params.gridX = tmpParams.gridX;                   
+            params.gridY = tmpParams.gridY;
+            params.grdMx = tmpParams.grdMx;
+            saveRotation = tmpParams.grdRotation;
+            params.grdRotation = tmpParams.grdRotation(1);
+            params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
+            params.prpNLargeDisk = round( params.prpLargeDisk * params.grdSpotPitch );
+            params.grdSpotSize   = params.grdSpotSize * params.grdSpotPitch;
+    end
+
+
+             
+    
+    if exitCode == 0
+        [params, exitCode] = pg_seg_segment_image(params);
+        
+        for i = 1:length(params.spots)
+           params.grdXOffset(i) = params.spots(i).initialMidpoint(1)-params.spots(i).finalMidpoint(1);
+           params.grdYOffset(i) = params.spots(i).initialMidpoint(2)-params.spots(i).finalMidpoint(2);
+        end
+        
+    end
+
+    
+    
+    if exitCode == 0
+        params.grdRotation = saveRotation;
         exitCode = pg_io_save_params(params, {...
                         'qntSpotID', 'grdIsReference', ...
                         'grdRow', 'grdCol', ...
                         'grdXOffset', 'grdYOffset', ...
                         'grdXFixedPosition', 'grdYFixedPosition', ...
-                        'gridX', 'gridY', 'grdRotation', ...
+                        'gridX', 'gridY', ...
+                        'diameter', 'segOutliers', 'isManual', ...
+                        'segIsBad', 'segIsReplaced', 'segIsEmpty', ...
+                        'grdRotation', ...
                         'grdImageNameUsed'} );
     end
 
@@ -59,20 +102,18 @@ end
 
 
 if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
-
+    
     if exitCode == 0
         [params, exitCode] = pg_io_read_in_gridding_results(params);
     end
+
     
-    
-    % The image for gridding and segmentation must be the same, so run this
-    % part again, though the rescaling part is not necessary (second
-    % argument).
     if exitCode == 0
         [params, exitCode] = pg_grd_preprocess_images(params, false, true);
     end
     
 
+%     return
     if exitCode == 0
         [params, exitCode] = pg_seg_segment_image(params);
     end
@@ -81,8 +122,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     if exitCode == 0
         [params, exitCode] = pg_qnt_quantify(params);  
     end
-    
-    
+
     if exitCode == 0
          [params, exitCode] = pg_qnt_check_quantification(params);
     end
@@ -122,7 +162,6 @@ end
 
 
 if exitCode ~= 0
-    
     error('Program finished with code %d\n', exitCode);
 end
 

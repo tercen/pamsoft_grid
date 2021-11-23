@@ -1,5 +1,4 @@
 function exitCode = pg_io_save_params(params, fields)
-
     exitCode = 0;
     
     if ~isfield(params, 'outputfile')
@@ -43,12 +42,18 @@ function exitCode = pg_io_save_params(params, fields)
     
     for i = 1:nFields
 
-        tbl.(fields{i}) = params.(fields{i});
-    end
-    
+         if size( params.(fields{i}), 1) > size( params.(fields{i}), 2)
+              params.(fields{i}) = params.(fields{i})';
+          end
+          tbl.(fields{i}) = params.(fields{i})';
 
+        
+    end
+
+    
     
     writetable(tbl, params.outputfile );
     
 
 end
+

@@ -15,30 +15,42 @@ function [params, exitCode] = pg_io_read_images_list(params)
         return
     end
 
+    
 
     % Get information from an example image
     try
         sInfo    = imfinfo(imFiles{1});
     catch err
+        
         exitCode = -6;
         pg_error_message(exitCode, imFiles{1}, err.message);
         return;
     end
 
+    
+
     % Get image type
+    try
     imType   = class(imread(imFiles{1}));
+    catch err
+        fprintf('%s', err.message);
+        error(err.message);
+    end
     IMG_SIZE = [sInfo.Height, sInfo.Width];
     nImgs    = length(imFiles);
     I 	     = zeros( IMG_SIZE(1), IMG_SIZE(2), nImgs, imType );
 
     % load the images, read cycle and exposure time information
-    expTime = zeros(1,nImgs);
-    cycles  = zeros(1,nImgs);
+    expTime   = zeros(1,nImgs);
+    cycles    = zeros(1,nImgs);
+    barcodes  = zeros(1,nImgs);
+    rows      = zeros(1,nImgs);
 
     for i = 1:nImgs
         try
             I(:,:,i)   = imread(imFiles{i});
         catch
+            
             exitCode = -5;
             pg_error_message( exitCode, imFiles{i});
             return
@@ -47,19 +59,20 @@ function [params, exitCode] = pg_io_read_images_list(params)
 
         % get the image parameters from file, and sort the images to
         % exposure time  and cycle (down below)
-        [imgInfo, exitCode]    = pg_io_get_image_info(imFiles{i}, {'ExposureTime', 'Cycle'});
+        [imgInfo, exitCode]    = pg_io_get_image_info(imFiles{i}, {'ExposureTime', 'Cycle', 'PamchipBarcode', 'PamchipRow'});
 
         if exitCode < 0
             return;
         end
         expTime(i) = imgInfo{1};
         cycles(i)  = imgInfo{2};
+        barcodes(i) = imgInfo{3};
+        rows(i)     = imgInfo{4};
 
     end
 
 
-
-    if nImgs > 0 && size(unique([expTime', cycles'],'rows'),1) ~= length(expTime)
+    if nImgs > 0 && size(unique([expTime', cycles', barcodes', rows'],'rows'),1) ~= length(expTime)
         exitCode = -7;
         pg_error_message(exitCode);
         return
@@ -89,7 +102,6 @@ function [params, exitCode] = pg_io_read_images_list(params)
 
     end
 
-    
     params.images       = I;
     params.expTime      = expTime;
     params.cycles       = cycles;

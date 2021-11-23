@@ -73,7 +73,7 @@ for i = 1:length(cx(:))
     params.spots(i).bsLuIndex = size(Ilocal);
     
 %     s(i) = translateBackgroundMask(s(i),[cx(i),cy(i)], size(I));
-    params.spots(i) = pg_translate_background_mask( params.spots(i), ...,
+    params.spots(i) = pg_seg_translate_background_mask( params.spots(i), ...,
                     [cx(i), cy(i)], size(I) );
         
 %     s(i).finalMidpoint = [cx(i),cy(i)];

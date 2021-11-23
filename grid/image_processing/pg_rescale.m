@@ -12,7 +12,9 @@ if length(params.grdSpotPitch) ==1
     params.grdSpotPitch = [params.grdSpotPitch, params.grdSpotPitch];
 end
 
-params.grdSpotPitch            = rsf .* params.grdSpotPitch ;
+% FIXME the rest of the code does not handle rsf being a vector
+% Check why this is the case
+params.grdSpotPitch            = rsf .* params.grdSpotPitch;
 params.grdSpotSize             = params.grdSpotSize * mean(rsf);
 params.grdXFixedPosition = params.grdXFixedPosition * rsf(1);
 params.grdYFixedPosition = params.grdYFixedPosition * rsf(2);

@@ -48,6 +48,12 @@ switch params.segMethod
         spot         = pg_seg_create_spot_structure(params);
         params.spots = repmat(spot, length(cx(:)), 1);
 
+        if length(params.spots(1).diameter) > 1
+            for i = 1:length(params.spots)
+                params.spots(i).diameter = params.spots(i).diameter(i);
+            end
+        end
+        
         if any(~bFxd)
             params.spots(~bFxd) = pg_seg_segment_by_edge(params, I, cx(~bFxd), cy(~bFxd), rotation);
         end

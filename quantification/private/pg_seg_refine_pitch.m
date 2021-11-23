@@ -41,7 +41,8 @@ if any(isRef & bUse)
 
     if length(pitch) > 1
         bOut = pg_seg_detect_outlier(pitch(:), params);
-        params.grdSpotPitch = mean(pitch(~bOut));
+
+        params.grdSpotPitch = nanmean(pitch(~bOut));
         params.segOutliers = bOut;
     end
 end

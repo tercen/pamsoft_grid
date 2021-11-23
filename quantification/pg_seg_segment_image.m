@@ -1,5 +1,42 @@
 function [params, exitCode] = pg_seg_segment_image(params)
 
+% If even a single spot was moved, segment the whole grid
+
+if isfield(params, 'isManual') && ~any(params.isManual)
+    
+    disp('Segmentation already run. Skipping');
+    exitCode = 0;
+    
+    
+     
+    cx =params.gridX;
+    cy = params.gridY;
+    r = params.diameter;
+    
+    I = params.image_seg;
+    nSpots = length( cx);
+    spots = repmat( pg_seg_create_spot_structure(params), nSpots, 1);
+    for i = 1:nSpots
+    
+        [xFit, yFit] = pg_circle([cx(i),cy(i)],r(i)/2,round(pi*r(i)/2)/2);
+        Ilocal = roipoly(I, yFit, xFit);
+
+        spots(i).diameter = spots(i).diameter(i);
+        spots(i).bsSize = size(Ilocal);
+        spots(i).bsTrue = find(Ilocal);
+        spots(i).finalMidpoint = [cx(i) cy(i)];
+        spots(i).grdSpotPitch = params.grdSpotPitch;
+        
+    end
+    
+    params.spots = spots;
+    params = pg_seg_set_background_mask(params,size(I));
+
+    return
+end
+
+
+
 maxSubIter      = 2; % Max iterations for subs vs refs refinement 
 maxRefSubOffset = 0.15; % Max offset criterium between refs and subs.
 
@@ -25,7 +62,9 @@ xOff     = params.grdXOffset;
 yOff     = params.grdYOffset; 
 xFxd     = params.grdXFixedPosition; 
 yFxd     = params.grdYFixedPosition; 
-ID       = params.qntSpotID; 
+
+% ID       = params.qntSpotID; 
+
 
 
 [paramsRef, exitCode] = pg_qnt_get_position_array(params, 'isreference');
@@ -41,6 +80,7 @@ end
 
 x = params.gridX;
 y = params.gridY;
+
 
 if any(~isRef)
     % segment as separate reference array (different quality settings)
@@ -75,14 +115,17 @@ if any(~isRef)
     
     % These are the initial coordinates, based on the ref spot refined
     % midpoint
-
-    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs);
+    
+    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,0);
+  
+    %%
     
     if exitCode < 0
         return
     end
     
     for pass = 1:maxSubIter
+        
         [paramsSub, spotPitch, mpSub] = pg_seg_segment_and_refine(paramsSub, xSub, ySub);
 
         if all(bFixedSpot(~isRef)) || ~bOptimize
@@ -130,5 +173,34 @@ params.segIsBad(isRef)      = paramsRef.seg_res.isBad;
 params.segIsEmpty(isRef)    = paramsRef.seg_res.isEmpty;
 params.segIsReplaced(isRef) = paramsRef.seg_res.isReplaced;
 
+if ~isfield(params, 'isManual')
+    params.isManual = zeros(length(params.spots),1);
+end
 
+if ~isfield(params, 'diameter')
+    params.diameter = zeros(length(params.spots),1);
+end
+
+% %%
+% x = [params.gridX];
+% y = [params.gridY];
+% 
+% 
+% %%
+
+
+for i = 1:length(params.spots)
+    spot = params.spots(i); 
+    
+    params.gridX(i) = spot.finalMidpoint(1);
+    params.gridY(i) = spot.finalMidpoint(2);
+    params.diameter(i) = spot.diameter;
+    
+end
+
+% x2 = [params.gridX];
+% y2 = [params.gridY];
+% 
+% scatter( x, y ); hold on;
+% scatter(x2, y2);
 end

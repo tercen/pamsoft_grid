@@ -1,5 +1,5 @@
 function spots = pg_seg_segment_by_edge(params, I, cx, cy, ~)
-spotPitch = params.grdSpotPitch;
+spotPitch =  params.grdSpotPitch;
 
 
 %  get the left upper coordinates and right lower coordinates
@@ -21,10 +21,13 @@ imxRl = max(xRl);
 imyRl = max(yRl);
 
 
+
 J = I(imxLu:imxRl, imyLu:imyRl);
+% imagesc(J)
+
 % apply morphological filtering if required.
 if params.segNFilterDisk >= 1
-    se = strel('disk', round(params.segNFilterDisk/2));
+    se = strel('disk', mean(round(params.segNFilterDisk/2)));
     J  = imerode(J, se);
     J  = imdilate(J, se);
 end

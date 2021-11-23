@@ -11,14 +11,20 @@ for i = 1:length(params.spots)
 
     end
     fmp   = spot.finalMidpoint;
+    % FIXME
+    % Does not work with spotPitch as a vector
     pxOff = spot.segBgOffset*spotPitch;
 
-    sqCorners = [   fmp(2)-pxOff, fmp(1)-pxOff;
-                    fmp(2)-pxOff, fmp(1)+pxOff;
-                    fmp(2)+pxOff, fmp(1)+pxOff;
-                    fmp(2)+pxOff, fmp(1)-pxOff ];
+    if length(pxOff) == 1
+        pxOff = [pxOff pxOff];
+    end
+    
+    sqCorners = [   fmp(2)-pxOff(2), fmp(1)-pxOff(1);
+                    fmp(2)-pxOff(2), fmp(1)+pxOff(1);
+                    fmp(2)+pxOff(2), fmp(1)+pxOff(1);
+                    fmp(2)+pxOff(2), fmp(1)-pxOff(1) ];
     aSquareMask = poly2mask(sqCorners(:,1), sqCorners(:,2), imSize(1), imSize(2));
-    [crx, cry] = pg_circle([fmp(2), fmp(1)], pxOff,25);
+    [crx, cry] = pg_circle([fmp(2), fmp(1)], mean(pxOff),25);
     aCircleMask = poly2mask(crx, cry, imSize(1), imSize(2));
     spot.bbTrue = find(aSquareMask & ~aCircleMask);
 

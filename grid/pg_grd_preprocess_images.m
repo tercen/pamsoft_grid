@@ -1,6 +1,7 @@
 function [params, exitCode] = pg_grd_preprocess_images(params, rescale, checkImageUsed)
 exitCode = 0;
 
+
 params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
 params.prpNLargeDisk = round( params.prpLargeDisk * params.grdSpotPitch );
 params.grdSpotSize   = params.grdSpotSize * params.grdSpotPitch;
@@ -70,10 +71,6 @@ bLast  = cycles == uCycle(end);
 bFirst = cycles == uCycle(1);
 
 
-
-%fprintf('First Image is cycle %d (%d) \n', uCycle(1), bFirst);
-%fprintf('Last Image is cycle %d (%d) \n', uCycle(end), bLast);
-
 % For the case where an image with specific Exposure time and cycle will be
 % used 
 if ~isempty( strfind(params.grdUseImage, '_') )
@@ -83,7 +80,6 @@ else
 end
 
 if checkImageUsed
-    % FIXME, this likely needs to go somewhere else
      [Igrid, ets, ] = pg_io_read_grid_images(params, gridImages{1});
      
      if size(Igrid,3) > 1
@@ -91,7 +87,6 @@ if checkImageUsed
      end
      
      Iseg = Igrid;
-    
 else
 
     
@@ -181,7 +176,7 @@ else
 end
 
 
-if rescale
+if rescale %|| any(params.isManual)
     rsf     = params.gridImageSize./size(Igrid);
     params  = pg_pp_rescale(params, rsf(1));
 
@@ -191,9 +186,15 @@ if rescale
     params.rsf = rsf;
      
     params = pg_rescale(params, rsf);
+else
+    disp('Rescale already run. Skipping');
 end
 
-               
+   
+%params.grdSpotPitch = inParams.grdSpotPitch;
+%params.grdSpotSize   = inParams.grdSpotSize;
+
+
 end
 
 

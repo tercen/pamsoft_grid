@@ -87,7 +87,9 @@ while delta > maxDelta
     arrayRefined.grdIsReference = true(size(x));
     refSpotPitch = arrayRefined.grdSpotPitch;
     
+    
     delta        = abs(refSpotPitch - spotPitch);
+    
     
     mp = pg_mid_point(arrayRefined, xPos, yPos);
     
