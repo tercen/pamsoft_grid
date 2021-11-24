@@ -111,7 +111,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     if exitCode == 0
         [params, exitCode] = pg_grd_preprocess_images(params, false, true);
     end
-    
+
 
 %     return
     if exitCode == 0
