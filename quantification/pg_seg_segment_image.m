@@ -30,6 +30,7 @@ if isfield(params, 'isManual') && ~any(params.isManual)
     end
     
     params.spots = spots;
+    params.segIsReplaced = zeros(length(spots), 1);
     params = pg_seg_set_background_mask(params,size(I));
 
     return
@@ -96,6 +97,17 @@ if all(paramsRef.seg_res.isBad)
    return
 end
 
+refSpot = find(isRef);
+
+
+params.spots(refSpot) = paramsRef.spots;
+% 
+% 
+% for k = 1:length(paramsRef.spots)
+%     params.spots(refSpot(k)).finalMidpoint(1) = xSub(k);
+%     params.spots(refSpot(k)).finalMidpoint(2) = ySub(k);
+% end
+
 
 % if any, segment and quantify the substrates (non refs), allow for another
 % pass if the offset between resf and sub is to large
@@ -115,8 +127,10 @@ if any(~isRef)
     
     % These are the initial coordinates, based on the ref spot refined
     % midpoint
-    
-    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,0);
+%     mpRefs = mpRefs(2:1);
+    [ySub,xSub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,0);
+%   scatter(ySub, xSub, 'y');
+%   scatter(mpRefs(1), mpRefs(2), 'w');
   
     %%
     
@@ -150,12 +164,20 @@ if any(~isRef)
             break;
         end
           % optimize the sub coordinates
-        [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined, mpSub);
+        [yr,xr, exitCode] = pg_grd_coordinates(paramsRefined, mpSub);
+        
+
 
         xSub(~bFixedSpot(~isRef)) = xr(~bFixedSpot(~isRef)); % adapt the ~bFixedSpot coordinates 
         ySub(~bFixedSpot(~isRef)) = yr(~bFixedSpot(~isRef)); 
+
+
         mpRefs = mpSub;          
     end
+    
+    
+    stdSpot = find(~isRef);
+
 
     params.spots(~isRef) = paramsSub.spots;
     params.segOutliers(~isRef) = paramsSub.segOutliers;
@@ -163,6 +185,11 @@ if any(~isRef)
     params.segIsBad(~isRef)      = paramsSub.seg_res.isBad;
     params.segIsEmpty(~isRef)    = paramsSub.seg_res.isEmpty;
     params.segIsReplaced(~isRef) = paramsSub.seg_res.isReplaced;
+    
+    for k = 1:length(paramsSub.spots)
+        params.spots(stdSpot(k)).finalMidpoint(1) = xSub(k);
+        params.spots(stdSpot(k)).finalMidpoint(2) = ySub(k);
+    end
     
 end
 

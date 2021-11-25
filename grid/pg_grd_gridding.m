@@ -158,10 +158,12 @@ switch params.grdMethod
         if any(bSet1)
             [cx(bSet1), cy(bSet1)] = pg_grid_coordinates(params.grdRow(bSet1), params.grdCol(bSet1),...
                 params.grdXOffset(bSet1), params.grdYOffset(bSet1), mx, params.grdSpotPitch, rot);
+
         end
         if any(bSet2)
             [cx(bSet2), cy(bSet2)] = pg_grid_coordinates(params.grdRow(bSet2), params.grdCol(bSet2), ...
                 params.grdXOffset(bSet2), params.grdYOffset(bSet2), mx, params.grdSpotPitch, rot);
+
         end
         
         cx = cx-2;

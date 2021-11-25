@@ -36,6 +36,7 @@ function [params, exitCode] = pg_io_read_images_list(params)
         fprintf('%s', err.message);
         error(err.message);
     end
+%     IMG_SIZE = [sInfo.Height, sInfo.Width];
     IMG_SIZE = [sInfo.Height, sInfo.Width];
     nImgs    = length(imFiles);
     I 	     = zeros( IMG_SIZE(1), IMG_SIZE(2), nImgs, imType );

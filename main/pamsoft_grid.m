@@ -44,7 +44,6 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
 
     
     if exitCode == 0
-%             preprocParams = params;
             
             [params, exitCode] = pg_grd_gridding(params);
             
@@ -53,19 +52,22 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
             % Override a few internal fields
             tmpParams = params;
             params    = inParams;
-            params.gridX = tmpParams.gridX;                   
-            params.gridY = tmpParams.gridY;
+            % TODO flip Rows and Cols across the code
+            % Otherwise, flipping the end result here also works
+            % This is due to a rotation in the TIF images in relation to
+            % what was n the previous Code
+            params.gridX = tmpParams.gridY;                   
+            params.gridY = tmpParams.gridX;
             params.grdMx = tmpParams.grdMx;
             saveRotation = tmpParams.grdRotation;
             params.grdRotation = tmpParams.grdRotation(1);
             params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
             params.prpNLargeDisk = round( params.prpLargeDisk * params.grdSpotPitch );
             params.grdSpotSize   = params.grdSpotSize * params.grdSpotPitch;
+%             params.grdSpotPitch = tmpParams.grdSpotPitch;
     end
 
 
-             
-    
     if exitCode == 0
         [params, exitCode] = pg_seg_segment_image(params);
         
@@ -96,29 +98,28 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
     if strcmpi(params.dbgPrintOutput, 'yes')
         disp(readlines(params.outputfile));
     end
-    
+
 
 end
 
 
 if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     
+    
+    
     if exitCode == 0
         [params, exitCode] = pg_io_read_in_gridding_results(params);
     end
 
-    
+
     if exitCode == 0
         [params, exitCode] = pg_grd_preprocess_images(params, false, true);
     end
 
-
-%     return
     if exitCode == 0
         [params, exitCode] = pg_seg_segment_image(params);
     end
-    
-    
+
     if exitCode == 0
         [params, exitCode] = pg_qnt_quantify(params);  
     end

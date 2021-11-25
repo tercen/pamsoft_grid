@@ -1,18 +1,18 @@
 function spots = pg_seg_segment_by_edge(params, I, cx, cy, ~)
 spotPitch =  params.grdSpotPitch;
 
-
+Ir = imrotate(I, 0);
 %  get the left upper coordinates and right lower coordinates
-xLu = round(cx - spotPitch);
-yLu = round(cy - spotPitch);
-xRl = round(cx + spotPitch);
-yRl = round(cy + spotPitch);
+xLu = round(cy - spotPitch);
+yLu = round(cx - spotPitch);
+xRl = round(cy + spotPitch);
+yRl = round(cx + spotPitch);
 
 % make sure these are in the image
 xLu(xLu < 1) = 1;
 yLu(yLu < 1) = 1;
-xRl(xRl > size(I,1)) = size(I,1);
-yRl(yRl > size(I,2)) = size(I,2);
+xRl(xRl > size(Ir,1)) = size(Ir,1);
+yRl(yRl > size(Ir,2)) = size(Ir,2);
 
 % resize the image for filtering
 imxLu = min(xLu);
@@ -22,9 +22,10 @@ imyRl = max(yRl);
 
 
 
-J = I(imxLu:imxRl, imyLu:imyRl);
-% imagesc(J)
-
+J = Ir(imxLu:imxRl, imyLu:imyRl);
+%  imagesc(J); hold on; 
+%  scatter(cx, cy, 'k');
+%%
 % apply morphological filtering if required.
 if params.segNFilterDisk >= 1
     se = strel('disk', mean(round(params.segNFilterDisk/2)));
@@ -52,7 +53,7 @@ end
 
 for i = 1:length(cx(:))
         params.spots(i).initialMidpoint = [cx(i), cy(i)];
-        
+       
         delta = 2;        
         xLocal = round(xLu(i) + [0, 2*spotPitch]);
         yLocal = round(yLu(i) + [0, 2*spotPitch]); 
@@ -69,9 +70,10 @@ for i = 1:length(cx(:))
             Ilocal = false(size(I));          
             xInitial = xLocal + [pixOff,-pixOff];
             yInitial = yLocal + [pixOff,-pixOff];
-            Ilocal(xInitial(1):xInitial(2), yInitial(1):yInitial(2)) = I(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
+            Ilocal(xInitial(1):xInitial(2), yInitial(1):yInitial(2)) = Ir(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
             Linitial = bwlabel(Ilocal);
             nObjects = max(Linitial(:));
+            
             if nObjects > 1
                 % keep the largest
                 a = zeros(nObjects,1);
@@ -81,7 +83,8 @@ for i = 1:length(cx(:))
                 [~, nLargest] = max(a);
                 Ilocal = Linitial == nLargest(1);
             end
-            [x,y] = find(Ilocal);
+            [y,x] = find(Ilocal);
+
             % store the current area left upper
             params.spots(i).bsLuIndex = [xLocal(1), yLocal(1)];
             if length(x) < params.segMinEdgePixels %oS.minEdgePixels

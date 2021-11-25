@@ -29,11 +29,17 @@ diameter = [params.spots.diameter]';
 % ds4.Std_Signal	0
 % ds4.Sum_Background	0
 % ds4.Sum_Signal	0
+rows = params.grdRow;
+cols = params.grdCol;
 
+if size(rows, 1) < size(rows,2), rows = rows'; end
+if size(cols, 1) < size(cols,2), cols = cols'; end
+if size(params.segIsReplaced , 1) < size(params.segIsReplaced ,2), params.segIsReplaced  = params.segIsReplaced'; end
 for i = 1:nImg
+
     qTable =    {   ...
-        'Row'               , params.grdRow';
-        'Column'            , params.grdCol';
+        'Row'               , rows;
+        'Column'            , cols;
         'Mean_SigmBg'       , [params.quant(:,i).meanSignal]' - [params.quant(:,i).meanBackground]';
         'Median_SigmBg'     , double([params.quant(:,i).medianSignal]')-double([params.quant(:,i).medianBackground]');
         'Mean_Signal'       , [params.quant(:,i).meanSignal]';
@@ -60,10 +66,14 @@ for i = 1:nImg
         qTypes = [];
     end
     [~,imageName,~] = fileparts( params.imageslist{i} );
+%     disp(qTable{1,2})
     
+
+
+try
     tbl = table(...
-        qTable{1,2}', ...
-        qTable{2,2}', ...
+        qTable{1,2}, ...
+        qTable{2,2}, ...
         qTable{3,2}, ...
         qTable{4,2}, ...
         qTable{5,2}, ...
@@ -79,7 +89,11 @@ for i = 1:nImg
         qTable{15,2}, ...
         qTable{16,2}, ...
         qTable{17,2}, ...
-        repmat(imageName, nSpots, 1));
+    repmat(imageName, nSpots, 1) );
+catch err
+    disp(qTable)
+    error(err.message)
+    end
     %         qNames_=qNames;
     %     qNames{1}='ROW';
     qNames{end+1} = 'ImageName';

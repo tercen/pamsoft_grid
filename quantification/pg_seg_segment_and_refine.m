@@ -40,7 +40,7 @@ y(bFixedSpot) = fxdy(bFixedSpot);
 % enough to the input spotPitch  (or when maxIter is reached);
 iter  = 0;
 delta = maxDelta + 1;
-
+xr = -100;
 while delta > maxDelta
     iter = iter + 1;
     if iter > maxIter
@@ -65,6 +65,7 @@ while delta > maxDelta
     % replace empty spots by the default spot
     params.spots(flags == 2) = pg_seg_set_as_dft_spot(params.spots(flags == 2));
     if all(bFixedSpot)
+        params.segOutliers = zeros(length(params.spots), 1);
         break;
     end
     % if too little spots are correctly found, skip spot pitch refinement
@@ -73,6 +74,7 @@ while delta > maxDelta
     if sum(bUse) < 5
         fprintf('[WARNING] Too few spots found (%d/%d), skipping spot pitch refinement.\n', ...
             sum(bUse), length(bUse));
+        params.segOutliers = zeros(length(bUse), 1);
         break;
     end
     
@@ -91,7 +93,7 @@ while delta > maxDelta
     delta        = abs(refSpotPitch - spotPitch);
     
     
-    mp = pg_mid_point(arrayRefined, xPos, yPos);
+    mp = pg_mid_point(arrayRefined, yPos, xPos);
     
     
     % Within pg_seg_refine_pitch, outliers are calculated relative to the
@@ -99,10 +101,12 @@ while delta > maxDelta
     params.segOutliers = zeros(length(bUse), 1);
     % FIXME THIS is being ignored later on
     %params.segOutliers(bUse(2:end)) = arrayRefined.segOutliers;
-    
+    %%
     % calculate array coordinates based on refined pitch
+%     mp = mp(2:-1:1);
     [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined,mp, params.grdRotation);
-    
+%     scatter(xPos, yPos); hold on; scatter(xr, yr);
+%     %%
     if bVerb
         disp('Spot pitch optimization')
         disp(['iter ',num2str(iter)]);
@@ -114,12 +118,21 @@ while delta > maxDelta
         end
     end
     spotPitch      = refSpotPitch;
+
+
+    
     x(~bFixedSpot) = xr(~bFixedSpot);
     y(~bFixedSpot) = yr(~bFixedSpot);
 end
 
 % replace bad spots by the default spot
 params.spots(flags == 1) = pg_seg_set_as_dft_spot(params.spots(flags == 1));
+
+if xr ~= -100
+    for i = 1:length(params.spots)
+        params.spots(i).finalMidpoint = [yr(i) xr(i)];
+    end
+end
 
 % create the array of spotQuantification objects for output.
 params.seg_res.isEmpty    = flags == 2;
