@@ -1,7 +1,7 @@
 function spots = pg_seg_segment_by_edge(params, I, cx, cy, ~)
-spotPitch =  params.grdSpotPitch;
+spotPitch =  mean(params.grdSpotPitch);
+% Iorig = I;
 
-Ir = imrotate(I, 0);
 %  get the left upper coordinates and right lower coordinates
 xLu = round(cy - spotPitch);
 yLu = round(cx - spotPitch);
@@ -11,8 +11,8 @@ yRl = round(cx + spotPitch);
 % make sure these are in the image
 xLu(xLu < 1) = 1;
 yLu(yLu < 1) = 1;
-xRl(xRl > size(Ir,1)) = size(Ir,1);
-yRl(yRl > size(Ir,2)) = size(Ir,2);
+xRl(xRl > size(I,1)) = size(I,1);
+yRl(yRl > size(I,2)) = size(I,2);
 
 % resize the image for filtering
 imxLu = min(xLu);
@@ -22,18 +22,22 @@ imyRl = max(yRl);
 
 
 
-J = Ir(imxLu:imxRl, imyLu:imyRl);
-%  imagesc(J); hold on; 
-%  scatter(cx, cy, 'k');
-%%
+J = I(imxLu:imxRl, imyLu:imyRl);
+% imagesc(J); 
+%
 % apply morphological filtering if required.
 if params.segNFilterDisk >= 1
     se = strel('disk', mean(round(params.segNFilterDisk/2)));
     J  = imerode(J, se);
+%     imagesc(J); 
+
     J  = imdilate(J, se);
 end
 
 J = edge(J, 'canny', params.segEdgeSensitivity);
+%  imagesc(J); 
+
+%%
 I = false(size(I));
 I(imxLu:imxRl, imyLu:imyRl) = J;
 % start segmentation loop
@@ -70,7 +74,7 @@ for i = 1:length(cx(:))
             Ilocal = false(size(I));          
             xInitial = xLocal + [pixOff,-pixOff];
             yInitial = yLocal + [pixOff,-pixOff];
-            Ilocal(xInitial(1):xInitial(2), yInitial(1):yInitial(2)) = Ir(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
+            Ilocal(xInitial(1):xInitial(2), yInitial(1):yInitial(2)) = I(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
             Linitial = bwlabel(Ilocal);
             nObjects = max(Linitial(:));
             
@@ -83,7 +87,12 @@ for i = 1:length(cx(:))
                 [~, nLargest] = max(a);
                 Ilocal = Linitial == nLargest(1);
             end
+           
+            
+            %%
             [y,x] = find(Ilocal);
+%             imagesc(Ilocal); hold on; plot(x,y, '.y');
+            %%
 
             % store the current area left upper
             params.spots(i).bsLuIndex = [xLocal(1), yLocal(1)];
@@ -96,7 +105,11 @@ for i = 1:length(cx(:))
             end
             spotFound = true;
             % fit a circle to the foreground pixels
+            %%
             [x0, y0, r, nChiSqr] = pg_seg_rob_circ_fit(x,y);
+
+         
+            %%
             % calculate the difference between area midpoint and fitted midpoint 
             mpOffset = [x0, y0] - params.spots(i).initialMidpoint;
             delta = norm(mpOffset);   
@@ -119,7 +132,7 @@ for i = 1:length(cx(:))
             params.spots(i).chisqr   = nChiSqr;
             
             [xFit, yFit] = pg_circle([x0,y0],r,round(pi*r)/2);
-            Ilocal = roipoly(Ilocal, yFit, xFit);    
+            Ilocal = roipoly(Ilocal, xFit, yFit);    
         end
         
         params.spots(i).bsSize = size(Ilocal);
@@ -129,12 +142,19 @@ for i = 1:length(cx(:))
                         [x0, y0], size(I) );
 
         params.spots(i).finalMidpoint = [x0, y0];
-        
+%         %%
+
+%             th = 0:pi/50:2*pi;
+%             xunit = r * cos(th) + x0;
+%             yunit = r * sin(th) + y0;
+%             plot(xunit, yunit,'y');
+%         
 end
 
 spots = params.spots;
 
 
+%%
 
 
 

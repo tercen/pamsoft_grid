@@ -41,40 +41,48 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         [params, exitCode] = pg_grd_preprocess_images(params, true, false);
     end
 
-
+    
     
     if exitCode == 0
-            
-            [params, exitCode] = pg_grd_gridding(params);
-            
-            [inParams, ~] = pg_io_read_params_json(params,  params.paramfile);
+        
+        [params, exitCode] = pg_grd_gridding(params);
+        
+        [inParams, ~] = pg_io_read_params_json(params,  params.paramfile);
+        
 
-            % Override a few internal fields
-            tmpParams = params;
-            params    = inParams;
-            % TODO flip Rows and Cols across the code
-            % Otherwise, flipping the end result here also works
-            % This is due to a rotation in the TIF images in relation to
-            % what was n the previous Code
-            params.gridX = tmpParams.gridY;                   
-            params.gridY = tmpParams.gridX;
-            params.grdMx = tmpParams.grdMx;
-            saveRotation = tmpParams.grdRotation;
-            params.grdRotation = tmpParams.grdRotation(1);
-            params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
-            params.prpNLargeDisk = round( params.prpLargeDisk * params.grdSpotPitch );
-            params.grdSpotSize   = params.grdSpotSize * params.grdSpotPitch;
-%             params.grdSpotPitch = tmpParams.grdSpotPitch;
+
+        % Override a few internal fields
+        tmpParams = params;
+        params    = inParams;
+        % TODO flip Rows and Cols across the code
+        % Otherwise, flipping the end result here also works
+        % This is due to a rotation in the TIF images in relation to
+        % what was n the previous Code
+        params.gridX = tmpParams.gridX;
+        params.gridY = tmpParams.gridY;
+        params.grdMx = tmpParams.grdMx;
+        saveRotation = tmpParams.grdRotation;
+        params.grdRotation = tmpParams.grdRotation(1);
+%         params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
+%         params.prpNLargeDisk = round( params.prpLargeDisk * params.grdSpotPitch );
+        
+%         params.prpNCircle = tmpParams.prpNCircle;
+%         params.prpNSmallDisk = tmpParams.prpNSmallDisk;
+%         params.prpNLargeDisk = tmpParams.prpNLargeDisk;
+%         params.grdRoiSearch = tmpParams.grdRoiSearch;
+%         params.rsf = tmpParams.rsf;
+%         params.image_grid_preproc = tmpParams.image_grid;
+%         
+        params.grdSpotPitch = tmpParams.grdSpotPitch;
+        params.grdSpotSize = tmpParams.grdSpotSize;
+  
     end
 
 
     if exitCode == 0
+
         [params, exitCode] = pg_seg_segment_image(params);
-        
-        for i = 1:length(params.spots)
-           params.grdXOffset(i) = params.spots(i).initialMidpoint(1)-params.spots(i).finalMidpoint(1);
-           params.grdYOffset(i) = params.spots(i).initialMidpoint(2)-params.spots(i).finalMidpoint(2);
-        end
+
         
     end
 

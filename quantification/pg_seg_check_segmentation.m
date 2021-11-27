@@ -9,7 +9,7 @@ spotFlag = zeros(size(sstr));
 for i=1:length(sstr)
     mp0 = sstr(i).initialMidpoint;
     mp1 = sstr(i).finalMidpoint;
-    sp  = sstr(i).grdSpotPitch;
+    sp  = mean( sstr(i).grdSpotPitch );
     
 
     d   = sstr(i).diameter/sp;

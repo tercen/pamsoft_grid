@@ -102,6 +102,13 @@ refSpot = find(isRef);
 
 params.spots(refSpot) = paramsRef.spots;
 % 
+% %%
+% fp = [paramsRef.spots.finalMidpoint];
+% imagesc(params.image_grid); hold on;
+% plot(fp(1:2:end), fp(2:2:end), 'ok');
+%%
+
+% 
 % 
 % for k = 1:length(paramsRef.spots)
 %     params.spots(refSpot(k)).finalMidpoint(1) = xSub(k);
@@ -128,7 +135,7 @@ if any(~isRef)
     % These are the initial coordinates, based on the ref spot refined
     % midpoint
 %     mpRefs = mpRefs(2:1);
-    [ySub,xSub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,0);
+    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,0);
 %   scatter(ySub, xSub, 'y');
 %   scatter(mpRefs(1), mpRefs(2), 'w');
   
@@ -139,8 +146,9 @@ if any(~isRef)
     end
     
     for pass = 1:maxSubIter
-        
+
         [paramsSub, spotPitch, mpSub] = pg_seg_segment_and_refine(paramsSub, xSub, ySub);
+
 
         if all(bFixedSpot(~isRef)) || ~bOptimize
             break;
@@ -164,7 +172,7 @@ if any(~isRef)
             break;
         end
           % optimize the sub coordinates
-        [yr,xr, exitCode] = pg_grd_coordinates(paramsRefined, mpSub);
+        [xr,yr, exitCode] = pg_grd_coordinates(paramsRefined, mpSub);
         
 
 
@@ -186,10 +194,10 @@ if any(~isRef)
     params.segIsEmpty(~isRef)    = paramsSub.seg_res.isEmpty;
     params.segIsReplaced(~isRef) = paramsSub.seg_res.isReplaced;
     
-    for k = 1:length(paramsSub.spots)
-        params.spots(stdSpot(k)).finalMidpoint(1) = xSub(k);
-        params.spots(stdSpot(k)).finalMidpoint(2) = ySub(k);
-    end
+%     for k = 1:length(paramsSub.spots)
+%         params.spots(stdSpot(k)).finalMidpoint(1) = xSub(k);
+%         params.spots(stdSpot(k)).finalMidpoint(2) = ySub(k);
+%     end
     
 end
 

@@ -48,8 +48,14 @@ while delta > maxDelta
     end
     
     I = params.image_seg;
-    
+%     imagesc(I); hold on; scatter(x,y,'k');
     [params, exitCode] = pg_seg_segment(params, I, x, y, bFixedSpot, params.grdRotation);
+    
+%                 imagesc(params.image_grid); hold on;
+% fp = [params.spots.finalMidpoint];
+% plot(fp(1:2:end), fp(2:2:end), 'oy');
+
+            
     
     if exitCode < 0
         return
@@ -77,9 +83,10 @@ while delta > maxDelta
         params.segOutliers = zeros(length(bUse), 1);
         break;
     end
-    
+    %%
     % Use the spots found to refine the pitch and array midpoint
     % exclude fixed points from the refinement
+%     clc;
     [xPos, yPos] = pg_seg_get_position(params.spots);
     
     params2fit                = params;
@@ -89,22 +96,38 @@ while delta > maxDelta
     arrayRefined.grdIsReference = true(size(x));
     refSpotPitch = arrayRefined.grdSpotPitch;
     
+
     
     delta        = abs(refSpotPitch - spotPitch);
     
     
-    mp = pg_mid_point(arrayRefined, yPos, xPos);
+    mp = pg_mid_point(arrayRefined, xPos, yPos);
     
     
     % Within pg_seg_refine_pitch, outliers are calculated relative to the
-    % first position, it seems
+    % first position
     params.segOutliers = zeros(length(bUse), 1);
     % FIXME THIS is being ignored later on
     %params.segOutliers(bUse(2:end)) = arrayRefined.segOutliers;
-    %%
+%     %%
     % calculate array coordinates based on refined pitch
 %     mp = mp(2:-1:1);
-    [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined,mp, params.grdRotation);
+%
+% clf;
+%  imagesc(I); hold on; 
+%  fp = [params.spots.finalMidpoint];
+% plot(fp(1:2:end), fp(2:2:end), 'oy');
+
+    [xr,yr, exitCode] = pg_grd_coordinates(arrayRefined,mp, -pi/2+params.grdRotation);
+%     plot(xr,yr, 'ok');
+% plot(mp(2),mp(1),'.k', 'MarkerSize', 15);
+        %%
+%     imagesc(params.image_grid); hold on; scatter(xPos, yPos, 'k'); 
+    
+%     scatter(xr, yr, 'y')
+    
+    %%
+    
 %     scatter(xPos, yPos); hold on; scatter(xr, yr);
 %     %%
     if bVerb
@@ -128,11 +151,11 @@ end
 % replace bad spots by the default spot
 params.spots(flags == 1) = pg_seg_set_as_dft_spot(params.spots(flags == 1));
 
-if xr ~= -100
-    for i = 1:length(params.spots)
-        params.spots(i).finalMidpoint = [yr(i) xr(i)];
-    end
-end
+% if xr ~= -100
+%     for i = 1:length(params.spots)
+%         params.spots(i).finalMidpoint = [yr(i) xr(i)];
+%     end
+% end
 
 % create the array of spotQuantification objects for output.
 params.seg_res.isEmpty    = flags == 2;
