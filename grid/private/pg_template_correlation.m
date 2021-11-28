@@ -6,7 +6,7 @@ roiSearch = roiSearch(:);
 
 mxcor = zeros( size(fftRotTemplate,3), 2 );
 for i=1:size(fftRotTemplate,3)
-    fftTemplate = fftRotTemplate(:,:,i);
+    fftTemplate = squeeze(fftRotTemplate(:,:,i));
     C = real(ifft2(fftImage.*conj(fftTemplate)));    
     C = fftshift(C);
     C(~roiSearch) = NaN;

@@ -179,9 +179,12 @@ end
 if rescale %|| any(params.isManual)
     rsf     = params.gridImageSize./size(Igrid);
     params  = pg_pp_rescale(params, rsf(1));
-
+   
+%     imagesc(Igrid);
+    
     Igrid   = pg_pp_fun(params, imresize(Igrid, params.gridImageSize));
-     
+%      Igrid(Igrid<63000) = 0;
+%      imagesc(Igrid);
     params.image_grid_preproc = Igrid;
     params.rsf = rsf;
      

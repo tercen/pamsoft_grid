@@ -35,6 +35,8 @@ end
 if length(spotPitch) == 1
     spotPitch(2) = spotPitch(1);
 end
+%%
+% spotPitch = spotPitch(2:-1:1);
 row = abs(row);
 col = abs(col);
 
@@ -46,7 +48,7 @@ x = spotPitch(1)*(row-rmp) + spotPitch(1) * x0;
 y = spotPitch(2)*(col-cmp) + spotPitch(2) * y0;
 
 % rotate the grid
-teta = (2*pi/360) * rotation;
+teta = (2*pi/360) * rotation; 
 R = [cos(teta), -sin(teta);
     sin(teta), cos(teta)];
 
@@ -56,6 +58,8 @@ x = v(:,1); y = v(:,2);
 % center around midpoint of array in image or template
 x = mp(1) + x + 1;
 y = mp(2) + y + 1;
-
+% figure;
+% scatter(x,y, 'k');
+%%
 x = x(bUse); y = y(bUse);
 %EOF

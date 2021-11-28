@@ -83,9 +83,8 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
 
         [params, exitCode] = pg_seg_segment_image(params);
 
-%                                         imagesc(params.image_grid); hold on; 
-%                         scatter([params.gridX(params.segIsBad)], [params.gridY(params.segIsBad)]', 'r', 'LineWidth',2)
-%                         scatter([params.gridX(~params.segIsBad)], [params.gridY(~params.segIsBad)]', 'g', 'LineWidth',2)
+        %                                 imagesc(params.image_grid); hold on; 
+                        scatter([params.gridX], [params.gridY]', 'k')
     end
 
     

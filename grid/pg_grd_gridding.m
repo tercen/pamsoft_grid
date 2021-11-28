@@ -145,9 +145,13 @@ switch params.grdMethod
         
         
         params.grdPrivate  = private;
-        
-      
+        %%
+
         [mx, iRot] = pg_template_correlation(I, private.fftTemplate, params.grdRoiSearch);
+% imagesc(I); hold on; plot(mx(1), mx(2), '.k', 'MarkerSize', 40);
+% plot(mx(2), mx(1), '.r', 'MarkerSize', 40);s
+% % %         
+        %%
         rot        = params.grdRotation(iRot);
         
         % get the coordinates for set1, set2 respectivley
@@ -156,19 +160,27 @@ switch params.grdMethod
         cx = -ones(size(bSet1));
         cy = -ones(size(cx));
         if any(bSet1)
+            %%
+%             [cx(bSet1), cy(bSet1)] = pg_grid_coordinates(params.grdRow(bSet1), params.grdCol(bSet1),...
+%                 params.grdXOffset(bSet1), params.grdYOffset(bSet1), mx, params.grdSpotPitch, rot);
             [cx(bSet1), cy(bSet1)] = pg_grid_coordinates(params.grdRow(bSet1), params.grdCol(bSet1),...
-                params.grdXOffset(bSet1), params.grdYOffset(bSet1), mx, params.grdSpotPitch, rot);
+                        params.grdXOffset(bSet1), params.grdYOffset(bSet1), mx, params.grdSpotPitch, rot);
+            
+            
+   
 
         end
         if any(bSet2)
+            %%
             [cx(bSet2), cy(bSet2)] = pg_grid_coordinates(params.grdRow(bSet2), params.grdCol(bSet2), ...
                 params.grdXOffset(bSet2), params.grdYOffset(bSet2), mx, params.grdSpotPitch, rot);
+            
 
         end
         
         cx = cx-2;
         cy = cy-2;
-        
+
         
     otherwise
 %         error('Unknown value for grid property ''method''');
@@ -182,6 +194,11 @@ end
 x(~x) = cx(~x);
 y(~y) = cy(~y);
 
+for i = 1:length(cx)
+    
+    
+end
+
 
 
 
@@ -190,15 +207,17 @@ x = x/rsf(1);
 y = y/rsf(2);
 x(x<1) = 1;
 y(y<1) = 1;
+
+
+
 % Preproc image may be resized, so we need to use the original image size
 x(x>size(params.image_grid,1)) = size(params.image_grid,1);
 y(y>size(params.image_grid,2)) = size(params.image_grid,2);
 
-
-
-params.gridX = x;
-params.gridY = y;
-
+params.gridX = y;
+params.gridY = x;
+%                                 imagesc(params.image_grid); hold on; 
+%                         scatter([params.gridX], [params.gridY]', 'k')
 
 % This is used to simplify saving. Rotation then is picked as first value
 % later on
@@ -207,8 +226,8 @@ params.grdMx             = mx;
 
 params.calcSpotPitch = params.grdSpotPitch ./ params.rsf;
 
-params.grdSpotPitch      = params.grdSpotPitch ./ mean(params.rsf);
-params.grdSpotSize       = params.grdSpotSize ./ mean(params.rsf);
+params.grdSpotPitch      = params.grdSpotPitch / (params.rsf);
+params.grdSpotSize       = params.grdSpotSize / mean(params.rsf);
 
 
 
