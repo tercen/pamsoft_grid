@@ -1,43 +1,5 @@
 function [params, exitCode] = pg_seg_segment_image(params)
 
-% If even a single spot was moved, segment the whole grid
-
-if isfield(params, 'isManual') && ~any(params.isManual)
-    
-    disp('Segmentation already run. Skipping');
-    exitCode = 0;
-    
-    
-     
-    cx =params.gridX;
-    cy = params.gridY;
-    r = params.diameter;
-    
-    I = params.image_seg;
-    nSpots = length( cx);
-    spots = repmat( pg_seg_create_spot_structure(params), nSpots, 1);
-    for i = 1:nSpots
-    
-        [xFit, yFit] = pg_circle([cx(i),cy(i)],r(i)/2,round(pi*r(i)/2)/2);
-        Ilocal = roipoly(I, yFit, xFit);
-
-        spots(i).diameter = spots(i).diameter(i);
-        spots(i).bsSize = size(Ilocal);
-        spots(i).bsTrue = find(Ilocal);
-        spots(i).finalMidpoint = [cx(i) cy(i)];
-        spots(i).grdSpotPitch = params.grdSpotPitch;
-        
-    end
-    
-    params.spots = spots;
-    params.segIsReplaced = zeros(length(spots), 1);
-    params = pg_seg_set_background_mask(params,size(I));
-
-    return
-end
-
-
-
 maxSubIter      = 2; % Max iterations for subs vs refs refinement 
 maxRefSubOffset = 0.15; % Max offset criterium between refs and subs.
 
@@ -64,8 +26,6 @@ yOff     = params.grdYOffset;
 xFxd     = params.grdXFixedPosition; 
 yFxd     = params.grdYFixedPosition; 
 
-% ID       = params.qntSpotID; 
-
 
 
 [paramsRef, exitCode] = pg_qnt_get_position_array(params, 'isreference');
@@ -90,6 +50,7 @@ else
     [paramsRef,~, mpRefs] = pg_seg_segment_and_refine(paramsRef, x(isRef), y(isRef), false);
 end
 
+
 if all(paramsRef.seg_res.isBad)
    % none of the references was properly found: gridding failure
    exitCode = -21;
@@ -101,19 +62,6 @@ refSpot = find(isRef);
 
 
 params.spots(refSpot) = paramsRef.spots;
-% 
-% %%
-% fp = [paramsRef.spots.finalMidpoint];
-% imagesc(params.image_grid); hold on;
-% plot(fp(1:2:end), fp(2:2:end), 'ok');
-%%
-
-% 
-% 
-% for k = 1:length(paramsRef.spots)
-%     params.spots(refSpot(k)).finalMidpoint(1) = xSub(k);
-%     params.spots(refSpot(k)).finalMidpoint(2) = ySub(k);
-% end
 
 
 % if any, segment and quantify the substrates (non refs), allow for another
@@ -132,12 +80,9 @@ if any(~isRef)
     paramsRefined.grdSpotPitch      = spotPitch;
     paramsRefined.grdRotation       = params.grdRotation;
     
-    % These are the initial coordinates, based on the ref spot refined
-    % midpoint
-%     mpRefs = mpRefs(2:1);
-    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,0);
-%   scatter(ySub, xSub, 'y');
-%   scatter(mpRefs(1), mpRefs(2), 'w');
+    % These are the initial coordinates, based on the ref spot refined midpoint
+    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,params.grdRotation);
+
   
     %%
     
@@ -146,9 +91,7 @@ if any(~isRef)
     end
     
     for pass = 1:maxSubIter
-
         [paramsSub, spotPitch, mpSub] = pg_seg_segment_and_refine(paramsSub, xSub, ySub);
-
 
         if all(bFixedSpot(~isRef)) || ~bOptimize
             break;
@@ -172,8 +115,8 @@ if any(~isRef)
             break;
         end
           % optimize the sub coordinates
-        [xr,yr, exitCode] = pg_grd_coordinates(paramsRefined, mpSub);
-        
+        [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpSub);
+        scatter(xr, yr, 'y', 'LineWidth',2)
 
 
         xSub(~bFixedSpot(~isRef)) = xr(~bFixedSpot(~isRef)); % adapt the ~bFixedSpot coordinates 
@@ -184,7 +127,7 @@ if any(~isRef)
     end
     
     
-    stdSpot = find(~isRef);
+%     stdSpot = find(~isRef);
 
 
     params.spots(~isRef) = paramsSub.spots;
@@ -216,13 +159,6 @@ if ~isfield(params, 'diameter')
     params.diameter = zeros(length(params.spots),1);
 end
 
-% %%
-% x = [params.gridX];
-% y = [params.gridY];
-% 
-% 
-% %%
-
 
 for i = 1:length(params.spots)
     spot = params.spots(i); 
@@ -233,9 +169,4 @@ for i = 1:length(params.spots)
     
 end
 
-% x2 = [params.gridX];
-% y2 = [params.gridY];
-% 
-% scatter( x, y ); hold on;
-% scatter(x2, y2);
 end

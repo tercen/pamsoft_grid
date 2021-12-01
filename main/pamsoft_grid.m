@@ -1,7 +1,5 @@
 function pamsoft_grid(arglist)
-
-%fprintf("Running build from 202109211730\n")
-
+% fprintf( 'Running version: %d.%d.%d\n', 1,0,12 );
 
 [params, exitCode] = parse_arguments(arglist);
 
@@ -31,7 +29,6 @@ end
 
 
 
-
 % First mode of execution: image preprocessing & gridding
 if exitCode == 0 && strcmpi(params.pgMode, 'grid') 
     % Read grid layout information
@@ -46,7 +43,9 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
     if exitCode == 0
         
         [params, exitCode] = pg_grd_gridding(params);
+                      
         
+       
         [inParams, ~] = pg_io_read_params_json(params,  params.paramfile);
         
 
@@ -54,38 +53,22 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         % Override a few internal fields
         tmpParams = params;
         params    = inParams;
-        % TODO flip Rows and Cols across the code
-        % Otherwise, flipping the end result here also works
-        % This is due to a rotation in the TIF images in relation to
-        % what was n the previous Code
+        
+
         params.gridX = tmpParams.gridX;
         params.gridY = tmpParams.gridY;
         params.grdMx = tmpParams.grdMx;
         saveRotation = tmpParams.grdRotation;
         params.grdRotation = tmpParams.grdRotation(1);
-%         params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
-%         params.prpNLargeDisk = round( params.prpLargeDisk * params.grdSpotPitch );
-        
-%         params.prpNCircle = tmpParams.prpNCircle;
-%         params.prpNSmallDisk = tmpParams.prpNSmallDisk;
-%         params.prpNLargeDisk = tmpParams.prpNLargeDisk;
-%         params.grdRoiSearch = tmpParams.grdRoiSearch;
-%         params.rsf = tmpParams.rsf;
-%         params.image_grid_preproc = tmpParams.image_grid;
-%         
-        params.grdSpotPitch = tmpParams.grdSpotPitch;
-        params.grdSpotSize = tmpParams.grdSpotSize;
+
+        params.grdSpotSize = params.grdSpotSize * params.grdSpotPitch ;
+        params.rsf = tmpParams.rsf;
   
     end
 
 
     if exitCode == 0
-
         [params, exitCode] = pg_seg_segment_image(params);
-
-%                                         imagesc(params.image_grid); hold on; 
-%                         scatter([params.gridX(params.segIsBad)], [params.gridY(params.segIsBad)]', 'r', 'LineWidth',2)
-%                         scatter([params.gridX(~params.segIsBad)], [params.gridY(~params.segIsBad)]', 'g', 'LineWidth',2)
     end
 
     
@@ -93,13 +76,12 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
     if exitCode == 0
         params.grdRotation = saveRotation;
         exitCode = pg_io_save_params(params, {...
-                        'qntSpotID', 'grdIsReference', ...
+                        'qntSpotID', 'grdIsReference',  ...
                         'grdRow', 'grdCol', ...
-                        'grdXOffset', 'grdYOffset', ...
                         'grdXFixedPosition', 'grdYFixedPosition', ...
                         'gridX', 'gridY', ...
-                        'diameter', 'segOutliers', 'isManual', ...
-                        'segIsBad', 'segIsReplaced', 'segIsEmpty', ...
+                        'diameter', 'isManual', ...
+                        'segIsBad', 'segIsEmpty', ...
                         'grdRotation', ...
                         'grdImageNameUsed'} );
     end

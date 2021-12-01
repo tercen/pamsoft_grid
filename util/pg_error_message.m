@@ -22,7 +22,7 @@ function pg_error_message(errorCode, varargin)
     
     if ~isempty(errMsg1)
         fprintf('An ERROR (error code %d) occurred at: \n', errorCode);
-        fprintf('[FILE STACK]\n%s\n', errMsg1);
+%         fprintf('[FILE STACK]\n%s\n', errMsg1);
         fprintf('[FUNCTION STACK]\n%s\n', errMsg2);
     end
     

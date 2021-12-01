@@ -58,8 +58,6 @@ x = v(:,1); y = v(:,2);
 % center around midpoint of array in image or template
 x = mp(1) + x + 1;
 y = mp(2) + y + 1;
-% figure;
-% scatter(x,y, 'k');
-%%
+
 x = x(bUse); y = y(bUse);
 %EOF

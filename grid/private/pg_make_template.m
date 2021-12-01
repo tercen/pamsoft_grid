@@ -59,6 +59,8 @@ for i =1:length(params.grdRotation)
         end
         
     end
+    
+
     template(:,:,i) = temp;
 end
 

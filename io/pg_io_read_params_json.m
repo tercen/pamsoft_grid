@@ -70,7 +70,7 @@ function params = pg_io_get_default_params(params)
     params.grdCol            = [];
     params.grdIsReference    = [];
     params.grdRotation       = -2:0.25:2;
-    params.grdSpotPitch      = 17.7;
+    params.grdSpotPitch      = 21.5;
     params.grdSpotSize       = 0.66;
     params.grdSearchDiameter = 15;
     params.grdXOffset        = [];
@@ -85,7 +85,7 @@ function params = pg_io_get_default_params(params)
     
     
     % Segmentation properties
-    params.segEdgeSensitivity = [0, 0.05];
+    params.segEdgeSensitivity = [0, 0.01];
     params.segAreaSize        = 0.7;
     params.segMethod          = 'Edge';
     params.segNFilterDisk     = 0;

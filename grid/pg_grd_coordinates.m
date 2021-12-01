@@ -25,5 +25,5 @@ if isempty(params.grdSpotPitch)
     return;
 end
 
-[cx, cy] = pg_grid_coordinates(params.grdCol, params.grdRow, params.grdXOffset, params.grdYOffset, mp(2:-1:1), params.grdSpotPitch, rotation, params.grdIsReference);
+[cx, cy] = pg_grid_coordinates(params.grdRow, params.grdCol, params.grdXOffset, params.grdYOffset, mp, params.grdSpotPitch, rotation, params.grdIsReference);
 

@@ -4,6 +4,9 @@ exitCode = 0;
 
 params.prpNSmallDisk = round( params.prpSmallDisk * params.grdSpotPitch );
 params.prpNLargeDisk = round( params.prpLargeDisk * params.grdSpotPitch );
+
+
+
 params.grdSpotSize   = params.grdSpotSize * params.grdSpotPitch;
 
 I       = params.images;
@@ -96,6 +99,7 @@ else
             if sum(bLast) > 1
                 Igrid = pg_combine_exposures(Igrid, expTime(bLast),sl);
             end
+
             Iseg = Igrid;
             params.grdImageUsed      = bLast;
             params.grdImageNameUsed  = internal_create_image_used_string(params, bLast);
@@ -108,8 +112,8 @@ else
             if sum(bLast) > 1
                 Iseg = pg_combine_exposures(Iseg, exp(bLast), sl);
             end
-            params.grdImageUsed      = bLast | bFirst;
-            params.grdImageNameUsed  = internal_create_image_used_string(params, bLast | bFirst);
+            params.grdImageUsed      = bLast ;
+            params.grdImageNameUsed  = internal_create_image_used_string(params, bLast );
         case 'First'
             Igrid = I(:,:,bFirst);
             % Changed here from sum(bLast), which seemed inappropriate

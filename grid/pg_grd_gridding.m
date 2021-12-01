@@ -2,7 +2,6 @@ function [params, exitCode] = pg_grd_gridding(params)
 
 exitCode = 0;
 
-% [x,y,rot,params] = pg_global_grid(params, params.image_grid);
 if ~isfield(params, 'image_grid') 
     exitCode = -11;
     pg_error_message(exitCode, 'image_grid');
@@ -147,10 +146,9 @@ switch params.grdMethod
         params.grdPrivate  = private;
         %%
 
+%  truthImg = readmatrix(   cat(2,'/media/thiago/EXTRALINUX/Tercen/matlab/pamsoft_grid/test/debug/Image.txt'));
         [mx, iRot] = pg_template_correlation(I, private.fftTemplate, params.grdRoiSearch);
-% imagesc(I); hold on; plot(mx(1), mx(2), '.k', 'MarkerSize', 40);
-% plot(mx(2), mx(1), '.r', 'MarkerSize', 40);s
-% % %         
+    
         %%
         rot        = params.grdRotation(iRot);
         
@@ -194,11 +192,6 @@ end
 x(~x) = cx(~x);
 y(~y) = cy(~y);
 
-for i = 1:length(cx)
-    
-    
-end
-
 
 
 
@@ -214,10 +207,8 @@ y(y<1) = 1;
 x(x>size(params.image_grid,1)) = size(params.image_grid,1);
 y(y>size(params.image_grid,2)) = size(params.image_grid,2);
 
-params.gridX = y;
-params.gridY = x;
-%                                 imagesc(params.image_grid); hold on; 
-%                         scatter([params.gridX], [params.gridY]', 'k')
+params.gridX = x;
+params.gridY = y;
 
 % This is used to simplify saving. Rotation then is picked as first value
 % later on
@@ -228,7 +219,6 @@ params.calcSpotPitch = params.grdSpotPitch ./ params.rsf;
 
 params.grdSpotPitch      = params.grdSpotPitch / (params.rsf);
 params.grdSpotSize       = params.grdSpotSize / mean(params.rsf);
-
 
 
 end

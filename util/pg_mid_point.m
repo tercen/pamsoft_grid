@@ -27,8 +27,8 @@ if any(isRef)
     rmp = min(row) + (max(row)-min(row))/2;
     cmp = min(col) + (max(col)-min(col))/2;
 
-    mp(:,2) = -1 + (xPos(isRef) -params.grdSpotPitch(1)    *params.grdXOffset(isRef)) + (rmp - row(isRef)) * params.grdSpotPitch(1);
-    mp(:,1) = -1 + (yPos(isRef) -params.grdSpotPitch(end)  *params.grdYOffset(isRef)) + (cmp - col(isRef)) * params.grdSpotPitch(end);
+    mp(:,1) = -1 + (xPos(isRef) -params.grdSpotPitch(1)    *params.grdXOffset(isRef)) + (rmp - row(isRef)) * params.grdSpotPitch(1);
+    mp(:,2) = -1 + (yPos(isRef) -params.grdSpotPitch(end)  *params.grdYOffset(isRef)) + (cmp - col(isRef)) * params.grdSpotPitch(end);
 
    
     if size(mp,1) > 1
