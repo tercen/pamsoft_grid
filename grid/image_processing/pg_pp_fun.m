@@ -19,6 +19,8 @@ if nSmallDisk > 0
     Ipp = imdilate(Ipp, se);
 end
 
+
+
 % nSmallDisk
 if nLargeDisk > 0
     se  = strel('Disk', nLargeDisk);
@@ -26,7 +28,6 @@ if nLargeDisk > 0
     Io  = imdilate(Io, se);
     Ipp = imsubtract(Ipp, Io);
 end
-
 
 
 % nLargeDisk
@@ -64,12 +65,18 @@ switch params.prpContrast
         cnt = hist(Ipp(:), bin);
         [mx, imx] = max(cnt); bgLevel = bin(imx);
         % get 0.99 quantile
-  
-        q99 = quantile(Ipp(:), 0.99);
+%   q99 = quantile(Ipp(:),0.99);
+%         %%
+%         clc;
+        q99 = quantile(Ipp(:), [0.8 0.99]);
+%         clf
+%         imagesc(histeq(imadjust(Ipp, [double(q99(1)), double(q99(2))]/bDepth)));
+%         %%
        
         % if the adjust step fails, refer to equalize:
         try 
-            Ipp = imadjust(Ipp, [bgLevel, double(q99)]/bDepth);
+%             Ipp = imadjust(Ipp, [bgLevel, double(q99)]/bDepth);
+            Ipp = imadjust(Ipp, [double(q99(1)), double(q99(2))]/bDepth);
             
             Ipp = histeq(Ipp);
         catch err
@@ -77,6 +84,7 @@ switch params.prpContrast
             Ipp = histeq(Ipp);
         end
 end
-
-% imagesc(Ipp);
+% clf
+% imagesc(Ipp, [2e4 7e4]); colorbar
+% disp('.');
 %EOF

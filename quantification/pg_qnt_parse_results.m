@@ -1,5 +1,5 @@
 
-function [qNames, qTypes, qTable] = pg_qnt_parse_results(params)
+function [qNames, qTypes, tbl] = pg_qnt_parse_results(params)
 
 [nSpots, nImg] = size(params.quant);
 qTypes         = zeros( nSpots, 17, nImg);
@@ -95,10 +95,10 @@ catch err
     error(err.message)
     end
     %         qNames_=qNames;
-    %     qNames{1}='ROW';
+        qNames{1}='ROW';
     qNames{end+1} = 'ImageName';
     
-    %     tbl.Properties.VariableNames = qNames;
+    tbl.Properties.VariableNames = qNames;
     if i == 1
         if exist(params.outputfile, 'file')
             delete( params.outputfile );

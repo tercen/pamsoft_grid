@@ -18,10 +18,10 @@ for i = 1:length(params.spots)
         pxOff = [pxOff pxOff];
     end
     %TODO CHECK HERE
-    sqCorners = [   fmp(1)-pxOff(1), fmp(2)-pxOff(2);
-                    fmp(1)-pxOff(1), fmp(2)+pxOff(2);
-                    fmp(1)+pxOff(1), fmp(2)+pxOff(2);
-                    fmp(1)+pxOff(1), fmp(2)-pxOff(2) ];
+    sqCorners = [   fmp(2)-pxOff(1), fmp(1)-pxOff(2);
+                    fmp(2)-pxOff(1), fmp(1)+pxOff(2);
+                    fmp(2)+pxOff(1), fmp(1)+pxOff(2);
+                    fmp(2)+pxOff(1), fmp(1)-pxOff(2) ];
     aSquareMask = poly2mask(sqCorners(:,1), sqCorners(:,2), imSize(1), imSize(2));
     [crx, cry] = pg_circle([fmp(2), fmp(1)], mean(pxOff),25);
     aCircleMask = poly2mask(crx, cry, imSize(1), imSize(2));

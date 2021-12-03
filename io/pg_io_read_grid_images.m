@@ -3,11 +3,13 @@ function [I, expTime, cycles] = pg_io_read_grid_images(params, gridImages)
 
     imFiles       = cellstr(strsplit(gridImages, ','));
 % 
-%  
-%     [imPath,~,ext] = fileparts(params.imageInfo.Filename);
-%     for i = 1:length(imFiles)
-%         imFiles{i} = cat(2, imPath, filesep, imFiles{i}, ext);
-%     end
+    [imPath,~,ext] = fileparts(imFiles{1});
+    if isempty(ext)
+        [imPath,~,ext] = fileparts(params.imageInfo.Filename);
+        for i = 1:length(imFiles)
+            imFiles{i} = cat(2, imPath, filesep, imFiles{i}, ext);
+        end
+    end
 
     % Get information from an example image
     try

@@ -20,8 +20,6 @@ if exitCode == 0
 end
 
 
-
-
 % This is used both for grid and quantification modes
 if exitCode == 0
     [params, exitCode] = pg_io_read_images_list(params);
@@ -39,15 +37,9 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
     end
 
     
-    
     if exitCode == 0
-        
-        [params, exitCode] = pg_grd_gridding(params);
-                      
-        
-       
         [inParams, ~] = pg_io_read_params_json(params,  params.paramfile);
-        
+        [params, exitCode] = pg_grd_gridding(params);
 
 
         % Override a few internal fields
@@ -61,16 +53,13 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         saveRotation = tmpParams.grdRotation;
         params.grdRotation = tmpParams.grdRotation(1);
 
-        params.grdSpotSize = params.grdSpotSize * params.grdSpotPitch ;
         params.rsf = tmpParams.rsf;
-  
     end
 
 
     if exitCode == 0
         [params, exitCode] = pg_seg_segment_image(params);
     end
-
     
     
     if exitCode == 0
@@ -96,9 +85,7 @@ end
 
 
 if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
-    
-    
-    
+
     if exitCode == 0
         [params, exitCode] = pg_io_read_in_gridding_results(params);
     end
@@ -131,7 +118,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
         
     end
     
-    [~, qTypes, ~] = pg_qnt_parse_results(params);
+    [~, qTypes, qntTbl] = pg_qnt_parse_results(params);
 
     %permute qTypes from: Spot-QuantitationType-Array 
     % % to : Array-Spot-QuantitationType

@@ -28,7 +28,9 @@ if params.segNFilterDisk >= 1
     J  = imdilate(J, se);
 end
 
+
 J = edge(J, 'canny', params.segEdgeSensitivity);
+
 
 
 I = false(size(I));
@@ -53,6 +55,8 @@ for i = 1:length(cx(:))
         delta = 2;        
         xLocal = round(xLu(i) + [0, 2*spotPitch]);
         yLocal = round(yLu(i) + [0, 2*spotPitch]); 
+        
+        aMidpoint = params.spots(i).initialMidpoint;
         % do while delta larger than sqrt(2) 
         deltaIter = 0;
         while delta > sqrt(2) && deltaIter < 3
@@ -63,44 +67,62 @@ for i = 1:length(cx(:))
             yLocal(yLocal < 1) = 1;
             yLocal(yLocal > size(I,2)) = size(I,2);                       
             % get the local image around the spot
-            Ilocal = false(size(I));          
+%             Ilocal = false(size(I));          
+            localMask = false(size(I));
             xInitial = xLocal + [pixOff,-pixOff];
             yInitial = yLocal + [pixOff,-pixOff];
-            Ilocal(xInitial(1):xInitial(2), yInitial(1):yInitial(2)) = I(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
-            Linitial = bwlabel(Ilocal);
-            nObjects = max(Linitial(:));
             
-            if nObjects > 1
-                % keep the largest
-                a = zeros(nObjects,1);
-                for t = 1:nObjects
-                    a(t) = sum(Linitial(:) == t);
-                end
-                [~, nLargest] = max(a);
-                Ilocal = Linitial == nLargest(1);
-            end
+            
+%             Ilocal(xInitial(1):xInitial(2), yInitial(1):yInitial(2)) = I(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
+%             Linitial = bwlabel(Ilocal);
+%             nObjects = max(Linitial(:));
+%             
+%             if nObjects > 1
+%                 % keep the largest
+%                 a = zeros(nObjects,1);
+%                 for t = 1:nObjects
+%                     a(t) = sum(Linitial(:) == t);
+%                 end
+%                 [~, nLargest] = max(a);
+%                 Ilocal = Linitial == nLargest(1);
+%             end
+% 
+%             [x,y] = find(Ilocal);
 
-            [x,y] = find(Ilocal);
-
+            Ilocal = I(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
+            anObjectList = bwconncomp(Ilocal);
+            nPix = cellfun(@length, anObjectList.PixelIdxList);
+            [mxPix,mxObject] = max(nPix);
+            
             % store the current area left upper
             params.spots(i).bsLuIndex = [xLocal(1), yLocal(1)];
-            if length(x) < params.segMinEdgePixels %oS.minEdgePixels
+%             if length(x) < params.segMinEdgePixels %oS.minEdgePixels
+            if mxPix >= params.segMinEdgePixels
+                spotFound = true;
+            else
                 % when the number of foreground pixels is too low, abort
                 spotFound = false;
                 x0 = cx(i);
                 y0 = cy(i);
                 break;
             end
-            spotFound = true;
+%             spotFound = true;
             % fit a circle to the foreground pixels
+            Ilocal = false(size(Ilocal));
+            Ilocal(anObjectList.PixelIdxList{mxObject}) = true;
+            J = false(size(I));
+            J(xInitial(1):xInitial(2),yInitial(1):yInitial(2)) = Ilocal;
+            [x,y] = find(J);
+            
 
             [x0, y0, r, nChiSqr] = pg_seg_rob_circ_fit(x,y);
 
             % calculate the difference between area midpoint and fitted midpoint 
-            mpOffset = [x0, y0] - params.spots(i).initialMidpoint;
-
-            
-            delta = norm(mpOffset);   
+%             mpOffset = [x0, y0] - params.spots(i).initialMidpoint;
+%             delta = norm(mpOffset);   
+            mpOffset = [x0,y0] - aMidpoint;
+            delta = norm(mpOffset);
+            aMidpoint = [x0,y0];
             
             % shift area according to mpOffset for next iteration,
             % the loop terminates if delta converges to some low value.
@@ -114,17 +136,23 @@ for i = 1:length(cx(:))
             yLocal(1) = max(yLocal(1),1);
             yLocal(2) = max(yLocal(2), yLocal(1) + 1);
         end
-        Ilocal = false(size(Ilocal));
+%         Ilocal = false(size(Ilocal));
+        J = false(size(I));
         if spotFound                   
             params.spots(i).diameter = 2*r;
             params.spots(i).chisqr   = nChiSqr;
             
             [xFit, yFit] = pg_circle([x0,y0],r,round(pi*r)/2);
-            Ilocal = roipoly(Ilocal, yFit, xFit);    
+%             Ilocal = roipoly(Ilocal, yFit, xFit);   
+            J = roipoly(J, yFit, xFit);   
+
         end
         
-        params.spots(i).bsSize = size(Ilocal);
-        params.spots(i).bsTrue = find(Ilocal);
+%         params.spots(i).bsSize = size(Ilocal);
+%         params.spots(i).bsTrue = find(Ilocal);
+        
+        params.spots(i).bsSize = size(J);
+        params.spots(i).bsTrue = find(J);
         
         params.spots(i) = pg_seg_translate_background_mask( params.spots(i), ...
                         [x0, y0], size(I) );

@@ -31,6 +31,12 @@ function [params, exitCode] = pg_io_read_in_gridding_results(params)
         params.(tblColumns{k}) = gridTable.(tblColumns{k});
     end
     
+        
+%     if isfield(params, 'isManual') && params.isManual(1) == 0
+%         params.grdXFixedPosition = params.gridX;
+%         params.grdYFixedPosition = params.gridY;
+%     end
+
     params.grdRotation = params.grdRotation(1); 
     
 end

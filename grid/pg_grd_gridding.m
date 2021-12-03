@@ -144,13 +144,11 @@ switch params.grdMethod
         
         
         params.grdPrivate  = private;
-        %%
 
-%  truthImg = readmatrix(   cat(2,'/media/thiago/EXTRALINUX/Tercen/matlab/pamsoft_grid/test/debug/Image.txt'));
-        [mx, iRot] = pg_template_correlation(I, private.fftTemplate, params.grdRoiSearch);
-    
-        %%
-        rot        = params.grdRotation(iRot);
+        [mx, iRot,rot] = pg_template_correlation(I, private.fftTemplate, params.grdRoiSearch);
+        if isnan(rot)
+          rot        = params.grdRotation(iRot);
+        end
         
         % get the coordinates for set1, set2 respectivley
         bSet1 = params.grdRow > 0 & params.grdCol > 0;
@@ -158,18 +156,11 @@ switch params.grdMethod
         cx = -ones(size(bSet1));
         cy = -ones(size(cx));
         if any(bSet1)
-            %%
-%             [cx(bSet1), cy(bSet1)] = pg_grid_coordinates(params.grdRow(bSet1), params.grdCol(bSet1),...
-%                 params.grdXOffset(bSet1), params.grdYOffset(bSet1), mx, params.grdSpotPitch, rot);
             [cx(bSet1), cy(bSet1)] = pg_grid_coordinates(params.grdRow(bSet1), params.grdCol(bSet1),...
                         params.grdXOffset(bSet1), params.grdYOffset(bSet1), mx, params.grdSpotPitch, rot);
             
-            
-   
-
         end
         if any(bSet2)
-            %%
             [cx(bSet2), cy(bSet2)] = pg_grid_coordinates(params.grdRow(bSet2), params.grdCol(bSet2), ...
                 params.grdXOffset(bSet2), params.grdYOffset(bSet2), mx, params.grdSpotPitch, rot);
             

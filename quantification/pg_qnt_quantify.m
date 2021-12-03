@@ -34,12 +34,26 @@ for k = 1:size(quant,2)
         
         
         if ~isempty(idxSignal)
+%%
             sigPix = I(idxSignal); % vector of pixels making up the spot
+%  bgPix = I(idxBackground);
+% clf;
+% I_ = I;
+% I_(idxBackground) = 0;
+% imagesc(I_);
+%   [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
+%  [iOutBackground, ~, ~] = pg_seg_detect_outlier(double(bgPix), params);
+% median(sigPix(~iOutSignal))- median(bgPix(~iOutBackground))
+% 332
+%%
             if bOut
                 [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
             else
                 iOutSignal = false(size(sigPix));
             end
+
+
+
             quant(i,k).medianSignal = median(sigPix(~iOutSignal));
             quant(i,k).meanSignal = mean(sigPix(~iOutSignal));
             
@@ -80,6 +94,13 @@ for k = 1:size(quant,2)
             quant(i,k).signalSaturation = length(find(sigPix(~iOutSignal) >= params.qntSaturationLimit))/nPix;
         else
             % no spot found
+%%
+clf;
+I_ = I;
+I_(idxBackground) = 0;
+imagesc(I_);
+%%
+
             quant(i,k).medianSignal      = NaN;
             quant(i,k).meanSignal        = NaN;
             quant(i,k).sumSignal         = NaN;

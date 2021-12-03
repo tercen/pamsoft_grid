@@ -81,11 +81,8 @@ if any(~isRef)
     paramsRefined.grdRotation       = params.grdRotation;
     
     % These are the initial coordinates, based on the ref spot refined midpoint
-    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs,params.grdRotation);
+    [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpRefs, params.grdRotation);
 
-  
-    %%
-    
     if exitCode < 0
         return
     end
@@ -116,8 +113,6 @@ if any(~isRef)
         end
           % optimize the sub coordinates
         [xSub,ySub, exitCode] = pg_grd_coordinates(paramsRefined, mpSub);
-        scatter(xr, yr, 'y', 'LineWidth',2)
-
 
         xSub(~bFixedSpot(~isRef)) = xr(~bFixedSpot(~isRef)); % adapt the ~bFixedSpot coordinates 
         ySub(~bFixedSpot(~isRef)) = yr(~bFixedSpot(~isRef)); 
@@ -126,21 +121,14 @@ if any(~isRef)
         mpRefs = mpSub;          
     end
     
-    
-%     stdSpot = find(~isRef);
 
-
-    params.spots(~isRef) = paramsSub.spots;
+    params.spots(~isRef)       = paramsSub.spots;
     params.segOutliers(~isRef) = paramsSub.segOutliers;
     
     params.segIsBad(~isRef)      = paramsSub.seg_res.isBad;
     params.segIsEmpty(~isRef)    = paramsSub.seg_res.isEmpty;
     params.segIsReplaced(~isRef) = paramsSub.seg_res.isReplaced;
     
-%     for k = 1:length(paramsSub.spots)
-%         params.spots(stdSpot(k)).finalMidpoint(1) = xSub(k);
-%         params.spots(stdSpot(k)).finalMidpoint(2) = ySub(k);
-%     end
     
 end
 
