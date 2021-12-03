@@ -15,6 +15,10 @@ for i=1:size(fftRotTemplate,3)
 
     C = fftshift(C);
     C(~roiSearch) = NaN;
+    [mx, idx] = nanmax(C(:));
+   
+    c(i) = mx(1);
+    [x,y] = ind2sub(size(C), idx(1));
     % ====================
     % NOTE
     % ====================
@@ -60,13 +64,14 @@ for i=1:size(fftRotTemplate,3)
 
         rot = atan2(ss,sc)*180/pi;
         trans = tform.T(1:2,3);
+         mxcor(i,:) = [x+trans(1),y+trans(2)]; 
+
+    else
+         mxcor(i,:) = [x,y]; 
+
+
     end
 
-    [mx, idx] = nanmax(C(:));
-   
-    c(i) = mx(1);
-    [x,y] = ind2sub(size(C), idx(1));
-    mxcor(i,:) = [x+trans(1),y+trans(2)]; 
 
 end
 
@@ -80,7 +85,7 @@ else
 
     discRot = abs(rot - rotations);
     [~,k] = min(discRot);
-
+    iRot = 0;
     rot=rotations(k);
 
 end

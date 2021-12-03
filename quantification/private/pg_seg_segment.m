@@ -55,7 +55,7 @@ switch params.segMethod
         end
         
         if any(~bFxd)
-            params.spots(~bFxd) = pg_seg_segment_by_edge_old(params, I, cx(~bFxd), cy(~bFxd), rotation);
+            params.spots(~bFxd) = pg_seg_segment_by_edge(params, I, cx(~bFxd), cy(~bFxd), rotation);
         end
         if any(bFxd)
             params.spots(bFxd)  = pg_seg_segment_by_edge_fxd_mp(params, I, cx(bFxd), cy(bFxd), rotation); 

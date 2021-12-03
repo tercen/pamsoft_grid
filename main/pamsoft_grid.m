@@ -26,7 +26,6 @@ if exitCode == 0
 end
 
 
-
 % First mode of execution: image preprocessing & gridding
 if exitCode == 0 && strcmpi(params.pgMode, 'grid') 
     % Read grid layout information
@@ -58,8 +57,11 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
 
 
     if exitCode == 0
+      
         [params, exitCode] = pg_seg_segment_image(params);
+
     end
+
     
     
     if exitCode == 0
@@ -119,6 +121,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     end
     
     [~, qTypes, qntTbl] = pg_qnt_parse_results(params);
+
 
     %permute qTypes from: Spot-QuantitationType-Array 
     % % to : Array-Spot-QuantitationType
