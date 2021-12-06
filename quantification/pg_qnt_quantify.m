@@ -94,12 +94,12 @@ for k = 1:size(quant,2)
             quant(i,k).signalSaturation = length(find(sigPix(~iOutSignal) >= params.qntSaturationLimit))/nPix;
         else
             % no spot found
-%%
-clf;
-I_ = I;
-I_(idxBackground) = 0;
-imagesc(I_);
-%%
+% %%
+% clf;
+% I_ = I;
+% I_(idxBackground) = 0;
+% imagesc(I_);
+% %%
 
             quant(i,k).medianSignal      = NaN;
             quant(i,k).meanSignal        = NaN;
