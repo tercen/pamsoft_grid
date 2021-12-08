@@ -15,6 +15,7 @@ quant = internal_create_empty_quant_struct();
 quant = repmat( quant, length(params.spots), size(params.images,3) );
 
 for k = 1:size(quant,2)
+    
     I = squeeze( params.images(:,:,k) );
     for i = 1:length(params.spots)
         
@@ -30,19 +31,24 @@ for k = 1:size(quant,2)
         %         end
         idxSignal = spot.bsTrue;
         idxBackground = spot.bbTrue;
-        
+
         
         
         if ~isempty(idxSignal)
 %%
             sigPix = I(idxSignal); % vector of pixels making up the spot
+            
+                
 %  bgPix = I(idxBackground);
 % clf;
 % I_ = I;
 % I_(idxBackground) = 0;
 % imagesc(I_);
+% disp('.');
 %   [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
 %  [iOutBackground, ~, ~] = pg_seg_detect_outlier(double(bgPix), params);
+
+%             end
 % median(sigPix(~iOutSignal))- median(bgPix(~iOutBackground))
 % 332
 %%
@@ -68,6 +74,7 @@ for k = 1:size(quant,2)
             % quantify background
             
             bgPix = I(idxBackground);
+            
             
             if bOut
                 [iOutBackground, ~, ~] = pg_seg_detect_outlier(double(bgPix), params);

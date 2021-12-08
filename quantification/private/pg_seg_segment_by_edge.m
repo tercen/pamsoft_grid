@@ -103,6 +103,10 @@ for i = 1:length(cx(:))
 
                 if ~isempty(x)
                     [x0, y0, r, nChiSqr] = pg_seg_rob_circ_fit(x,y);
+                    if r == 0 || isnan(r)
+                        x0 = cx(i);
+                        y0 = cy(i);
+                    end
                 else
                     x0 = cx(i);
                     y0 = cy(i);
@@ -163,7 +167,8 @@ for i = 1:length(cx(:))
         
         params.spots(i) = pg_seg_translate_background_mask( params.spots(i), ...
                         [x0, y0], size(I) );
-
+                    
+                    
         params.spots(i).finalMidpoint = [x0, y0];
         
 end
