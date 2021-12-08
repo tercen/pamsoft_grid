@@ -60,6 +60,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
       
         [params, exitCode] = pg_seg_segment_image(params);
 
+
     end
 
     
@@ -75,6 +76,10 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
                         'segIsBad', 'segIsEmpty', ...
                         'grdRotation', ...
                         'grdImageNameUsed'} );
+%                     disp(params.segIsBad)
+%         exitCode = pg_io_save_params(params, {...
+%                         'segIsBad',  ...
+%                         'grdImageNameUsed'} );
     end
 
     

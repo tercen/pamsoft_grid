@@ -1,7 +1,5 @@
-% function s = pg_seg_segment_by_edge_fxd_mp(oS, I, cx, cy, rotation)
 function spots = pg_seg_segment_by_edge_fxd_mp(params, I, cx, cy, ~)
-spotPitch =  params.grdSpotPitch;
-
+spotPitch =  mean(params.grdSpotPitch);
 
 %  get the left upper coordinates and right lower coordinates
 xLu = round(cx - spotPitch);
@@ -20,8 +18,6 @@ imxLu = min(xLu);
 imyLu = min(yLu);
 imxRl = max(xRl);
 imyRl = max(yRl);
-
-
 
 J = I(imxLu:imxRl, imyLu:imyRl);
 % imagesc(J)

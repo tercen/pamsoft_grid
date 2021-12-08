@@ -14,9 +14,9 @@ for i=1:length(sstr)
 
     d   = sstr(i).diameter/sp;
     
-    if ~isempty(mp1) && ~isempty(d)
+    if ~isempty(mp1) && ~isempty(d) 
         offset = norm(mp1-mp0)/sp;
-        if d >= params.sqcMinDiameter && d <= params.sqcMaxDiameter && offset <=maxOffset
+        if d >= params.sqcMinDiameter && d <= params.sqcMaxDiameter && offset <=maxOffset || all(mp1 == mp0)
             spotFlag(i) = 0;
         else
             spotFlag(i) = 1;

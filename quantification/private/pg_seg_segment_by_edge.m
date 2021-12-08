@@ -1,4 +1,4 @@
-function spots = pg_seg_segment_by_edge_old(params, I, cx, cy, ~)
+function spots = pg_seg_segment_by_edge(params, I, cx, cy, ~)
 spotPitch =  mean(params.grdSpotPitch);
 
 %  get the left upper coordinates and right lower coordinates
@@ -30,9 +30,6 @@ end
 
 
 J = edge(J, 'canny', params.segEdgeSensitivity);
-
-
-
 I = false(size(I));
 I(imxLu:imxRl, imyLu:imyRl) = J;
 % start segmentation loop
@@ -106,6 +103,9 @@ for i = 1:length(cx(:))
 
                 if ~isempty(x)
                     [x0, y0, r, nChiSqr] = pg_seg_rob_circ_fit(x,y);
+                else
+                    x0 = cx(i);
+                    y0 = cy(i);
                 end
 
 %                 x0 = cx(i);
