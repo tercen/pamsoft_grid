@@ -163,8 +163,6 @@ switch params.grdMethod
         if any(bSet2)
             [cx(bSet2), cy(bSet2)] = pg_grid_coordinates(params.grdRow(bSet2), params.grdCol(bSet2), ...
                 params.grdXOffset(bSet2), params.grdYOffset(bSet2), mx, params.grdSpotPitch, rot);
-            
-
         end
         
         cx = cx-2;
@@ -184,14 +182,11 @@ x(~x) = cx(~x);
 y(~y) = cy(~y);
 
 
-
-
 % scale back to the original size and return
 x = x/rsf(1);
 y = y/rsf(2);
 x(x<1) = 1;
 y(y<1) = 1;
-
 
 
 % Preproc image may be resized, so we need to use the original image size

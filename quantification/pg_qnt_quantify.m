@@ -31,10 +31,16 @@ for k = 1:size(quant,2)
         %         end
         idxSignal = spot.bsTrue;
         idxBackground = spot.bbTrue;
-
+% 
+%         
+%         if ~isempty(idxSignal)
+%             sigPix = I(idxSignal); 
+%             [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
+%         end
+%         
         
-        
-        if ~isempty(idxSignal)
+        if ~isempty(idxSignal) 
+%&& ~isempty(iOutSignal)
 %%
             sigPix = I(idxSignal); % vector of pixels making up the spot
             
@@ -43,6 +49,7 @@ for k = 1:size(quant,2)
 % clf;
 % I_ = I;
 % I_(idxBackground) = 0;
+% I_(idxSignal) = 5000;
 % imagesc(I_);
 % disp('.');
 %   [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
@@ -98,7 +105,14 @@ for k = 1:size(quant,2)
                 quant(i,k).fractionIgnored = length(quant(i,k).iIgnored)/(length(sigPix ) + length(bgPix));
             end
             nPix = length(sigPix(~iOutSignal));
-            quant(i,k).signalSaturation = length(find(sigPix(~iOutSignal) >= params.qntSaturationLimit))/nPix;
+            disp(params.qntSaturationLimit)
+%             disp('........');
+%             disp(sigPix(~iOutSignal))
+            if any(iOutSignal) && any(sigPix) && ~isstruct(sigPix(~iOutSignal) )
+                quant(i,k).signalSaturation = length(find(sigPix(~iOutSignal) >= params.qntSaturationLimit))/nPix;
+            else
+                quant(i,k).signalSaturation = 0;
+            end
         else
             % no spot found
 % %%

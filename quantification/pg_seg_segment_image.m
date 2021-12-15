@@ -89,7 +89,7 @@ if any(~isRef)
     
     for pass = 1:maxSubIter
         [paramsSub, spotPitch, mpSub] = pg_seg_segment_and_refine(paramsSub, xSub, ySub);
-
+        
         if all(bFixedSpot(~isRef)) || ~bOptimize
             break;
         end
@@ -153,6 +153,10 @@ for i = 1:length(params.spots)
     
     params.gridX(i) = spot.finalMidpoint(1);
     params.gridY(i) = spot.finalMidpoint(2);
+    
+    params.grdXFixedPosition(i) = spot.finalMidpoint(1);
+    params.grdYFixedPosition(i) = spot.finalMidpoint(2);
+    
     params.diameter(i) = spot.diameter;
     
 end

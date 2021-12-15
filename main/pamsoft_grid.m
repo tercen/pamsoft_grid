@@ -1,15 +1,12 @@
 function pamsoft_grid(arglist)
-% fprintf( 'Running version: %d.%d.%d\n', 1,0,12 );
+fprintf( 'Running PG version: %d.%d.%d\n', 1,0,20 );
 
 [params, exitCode] = parse_arguments(arglist);
-
-
 
 
 if exitCode == 0
     % Populate with default values
     [params, exitCode] = pg_io_read_params_json(params, 'default');
-    
 end
 
 
@@ -37,7 +34,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
 
     
     if exitCode == 0
-        [inParams, ~] = pg_io_read_params_json(params,  params.paramfile);
+        [inParams, ~]      = pg_io_read_params_json(params,  params.paramfile);
         [params, exitCode] = pg_grd_gridding(params);
 
 
@@ -46,10 +43,10 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         params    = inParams;
         
 
-        params.gridX = tmpParams.gridX;
-        params.gridY = tmpParams.gridY;
-        params.grdMx = tmpParams.grdMx;
-        saveRotation = tmpParams.grdRotation;
+        params.gridX       = tmpParams.gridX;
+        params.gridY       = tmpParams.gridY;
+        params.grdMx       = tmpParams.grdMx;
+        saveRotation       = tmpParams.grdRotation;
         params.grdRotation = tmpParams.grdRotation(1);
 
         params.rsf = tmpParams.rsf;
@@ -57,10 +54,7 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
 
 
     if exitCode == 0
-      
         [params, exitCode] = pg_seg_segment_image(params);
-
-
     end
 
     
@@ -76,10 +70,6 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
                         'segIsBad', 'segIsEmpty', ...
                         'grdRotation', ...
                         'grdImageNameUsed'} );
-%                     disp(params.segIsBad)
-%         exitCode = pg_io_save_params(params, {...
-%                         'segIsBad',  ...
-%                         'grdImageNameUsed'} );
     end
 
     
@@ -87,6 +77,25 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         disp(readlines(params.outputfile));
     end
 
+%     clf;
+%     imagesc(params.image_seg); hold on;
+%     spots = params.spots;
+%     
+%     for i = 1:length(spots)
+%         if isfield(spots(i), 'diameter') && ~isempty(spots(i).diameter)
+%             r = spots(i).diameter/2;
+%         else
+%             r = 12.5/2;
+%         end
+%         x0 = spots(i).finalMidpoint(1);
+%         y0 = spots(i).finalMidpoint(2);
+%         th = 0:pi/40:2*pi;
+%         xunit = r * cos(th) + x0;
+%         yunit = r * sin(th) + y0;
+%         plot(yunit, xunit, 'k');
+%         plot(y0, x0, '.k');
+%     end
+%     
 
 end
 

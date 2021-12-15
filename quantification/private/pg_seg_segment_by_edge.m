@@ -69,6 +69,47 @@ for i = 1:length(cx(:))
             xInitial = xLocal + [pixOff,-pixOff];
             yInitial = yLocal + [pixOff,-pixOff];
             
+%             xInitial = xLocal + [pixOff,-pixOff].*0.7;
+%             yInitial = yLocal + [pixOff,-pixOff].*0.7;
+            
+%             %%
+% 
+%             
+%             
+%             
+%             clc;
+%             Ilocal =  double(I_(xInitial(1):xInitial(2),yInitial(1):yInitial(2)));
+%             rfac   = 4;
+%             [xp,yp] = meshgrid( 1:size(Ilocal,1) );
+%             [xq,yq] = meshgrid( 1:(1/rfac):size(Ilocal,1) );
+%             
+%             
+%             Ihi =  interp2(xp,yp,Ilocal,xq,yq, 'cubic');
+%             
+%             
+%             
+%             
+%             clf;
+%             imagesc(Ihi); hold on
+%             
+%             [cnts, rdis]=imfindcircles(Ihi,[10*rfac 15*rfac]./2, 'Sensitivity', 0.95)
+%             
+%             x = cnts(1);
+%             y = cnts(2);
+%             r = rdis(1);
+% 
+%             th = 0:pi/50:2*pi;
+%             xunit = r * cos(th) + x;
+%             yunit = r * sin(th) + y;
+%             plot(xunit, yunit, 'k');
+% 
+%             
+%             %%
+
+            
+            
+            
+            %%
             
             Ilocal(xInitial(1):xInitial(2), yInitial(1):yInitial(2)) = I(xInitial(1):xInitial(2),yInitial(1):yInitial(2));
             Linitial = bwlabel(Ilocal);

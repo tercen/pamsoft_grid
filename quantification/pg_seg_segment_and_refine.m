@@ -49,7 +49,7 @@ while delta > maxDelta
     
     I = params.image_seg;
     [params, exitCode] = pg_seg_segment(params, I, x, y, bFixedSpot, params.grdRotation);
-    
+ 
  
     if exitCode < 0
         return
@@ -60,6 +60,7 @@ while delta > maxDelta
         flags = pg_seg_check_segmentation( params, params.sqcMaxPositionOffsetRefs );
     else
         flags = pg_seg_check_segmentation( params, params.sqcMaxPositionOffset );
+
     end
     
     % replace empty spots by the default spot
