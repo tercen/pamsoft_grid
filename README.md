@@ -2,15 +2,18 @@
 
 ```shell
 docker run -it -d --name matlab -p 5901:5901 -p 6080:6080 --shm-size=512M mathworks/matlab:r2020b -vnc
+# NOTE: The VNC password is matlab by default. Use the PASSWORD environment variable to change it.
 # http://localhost:6080
 # sudo matlab
+# (From Matlab Home -> Addons button on Toolbar, search and install the following packages)
 # install matlab Compiler addon and Image_Processing_Toolbox and Statistics_and_Machine_Learning_Toolbox
+
 
 docker commit matlab tercen/matlab:r2020b-4
 docker rm -f matlab
 ```
 
-# Compile component
+# Compile component (NOTE: Mathworks credentials are needed)
 
 ```shell
  
@@ -28,7 +31,7 @@ docker run -it --rm \
        tercen/matlab:r2020b-4 \
        -i -c "matlab -batch build"
 ```       
-# Build docker
+# Build docker (as latest version)
 
 ```shell
 docker build -t tercen/pamsoft_grid .

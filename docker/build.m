@@ -1,5 +1,6 @@
 
 addpath(genpath('/pamsoft_grid/grid/'));
+addpath(genpath('/pamsoft_grid/main/'));
 addpath(genpath('/pamsoft_grid/io/'));
 addpath(genpath('/pamsoft_grid/util/'));
 addpath(genpath('/pamsoft_grid/quantification'));
