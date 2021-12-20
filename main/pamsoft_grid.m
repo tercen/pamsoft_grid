@@ -50,11 +50,6 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         params.grdRotation = tmpParams.grdRotation(1);
 
         params.rsf = tmpParams.rsf;
-        
-        clf;
-        imagesc(params.image_seg); hold on;
-        plot([params.gridY], [params.gridX], 'k.');
-        
     end
 
 
@@ -82,8 +77,13 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         disp(readlines(params.outputfile));
     end
 
-%     clf;
+    
+%     figure('Renderer', 'painters', 'Position', [10 10 800 600])
 %     imagesc(params.image_seg); hold on;
+%     
+%     title( sprintf('Seg. Method: %s (Max. Diameter: %.2f)', ...
+%         params.segMethod, params.sqcMaxDiameter) );
+%     
 %     spots = params.spots;
 %     
 %     for i = 1:length(spots)
@@ -99,8 +99,9 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
 %         yunit = r * sin(th) + y0;
 %         plot(yunit, xunit, 'k');
 %         plot(y0, x0, '.k');
+% %         axis([200 520 100 400]);
 %     end
-%     
+    
 
 end
 
