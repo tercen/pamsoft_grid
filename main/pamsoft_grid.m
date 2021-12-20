@@ -1,5 +1,5 @@
 function pamsoft_grid(arglist)
-fprintf( 'Running PG version: %d.%d.%d\n', 1,0,21 );
+fprintf( 'Running PG version: %d.%d.%d\n', 1,0,22 );
 
 [params, exitCode] = parse_arguments(arglist);
 
