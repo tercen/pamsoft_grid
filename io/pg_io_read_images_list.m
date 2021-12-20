@@ -8,7 +8,8 @@ function [params, exitCode] = pg_io_read_images_list(params)
     end
 
     imFiles       = params.imageslist;
-
+    
+    
     if ~iscell(imFiles) || isempty(imFiles)
         exitCode = -4;
         pg_error_message(exitCode);

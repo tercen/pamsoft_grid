@@ -1,5 +1,5 @@
 function pamsoft_grid(arglist)
-fprintf( 'Running PG version: %d.%d.%d\n', 1,0,20 );
+fprintf( 'Running PG version: %d.%d.%d\n', 1,0,21 );
 
 [params, exitCode] = parse_arguments(arglist);
 
@@ -50,6 +50,11 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         params.grdRotation = tmpParams.grdRotation(1);
 
         params.rsf = tmpParams.rsf;
+        
+        clf;
+        imagesc(params.image_seg); hold on;
+        plot([params.gridY], [params.gridX], 'k.');
+        
     end
 
 

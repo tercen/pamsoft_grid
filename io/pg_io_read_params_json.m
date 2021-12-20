@@ -33,6 +33,12 @@ function [params, exitCode] = pg_io_read_params_json(params, jsonFile)
                 continue;
             end
             params.(paramName) = jsonParams.(paramName);
+            
+            % Handles special case when there is only one image to be
+            % processed
+            if strcmp(paramName, 'imageslist') && ischar(params.imageslist)
+                params.imageslist = cellstr(params.imageslist);
+            end
 
             % The code is expecting column format, but arrays come in row
             % format from the JSON parsing
