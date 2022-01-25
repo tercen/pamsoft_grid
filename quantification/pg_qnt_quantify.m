@@ -20,6 +20,7 @@ for k = 1:size(quant,2)
     for i = 1:length(params.spots)
         
         spot = params.spots(i);
+
         % @FIXME MAYBE OUTLIERS ARE NOT BEING SAVE IN THE LEGACY CODE
         % In the tests, all spots were marked as outliers...
         
@@ -43,22 +44,7 @@ for k = 1:size(quant,2)
 %&& ~isempty(iOutSignal)
 %%
             sigPix = I(idxSignal); % vector of pixels making up the spot
-            
-                
-%  bgPix = I(idxBackground);
-% clf;
-% I_ = I;
-% I_(idxBackground) = 0;
-% I_(idxSignal) = 5000;
-% imagesc(I_);
-% disp('.');
-%   [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
-%  [iOutBackground, ~, ~] = pg_seg_detect_outlier(double(bgPix), params);
 
-%             end
-% median(sigPix(~iOutSignal))- median(bgPix(~iOutBackground))
-% 332
-%%
             if bOut
                 [iOutSignal, ~, ~] = pg_seg_detect_outlier(double(sigPix), params);
             else
@@ -105,22 +91,18 @@ for k = 1:size(quant,2)
                 quant(i,k).fractionIgnored = length(quant(i,k).iIgnored)/(length(sigPix ) + length(bgPix));
             end
             nPix = length(sigPix(~iOutSignal));
-            disp(params.qntSaturationLimit)
-%             disp('........');
-%             disp(sigPix(~iOutSignal))
+            
+
             if any(iOutSignal) && any(sigPix) && ~isstruct(sigPix(~iOutSignal) )
                 quant(i,k).signalSaturation = length(find(sigPix(~iOutSignal) >= params.qntSaturationLimit))/nPix;
             else
                 quant(i,k).signalSaturation = 0;
             end
+            
+            
+            
         else
-            % no spot found
-% %%
-% clf;
-% I_ = I;
-% I_(idxBackground) = 0;
-% imagesc(I_);
-% %%
+
 
             quant(i,k).medianSignal      = NaN;
             quant(i,k).meanSignal        = NaN;

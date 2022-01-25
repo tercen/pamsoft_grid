@@ -1,5 +1,5 @@
 function pamsoft_grid(arglist)
-fprintf( 'Running PG version: %d.%d.%d\n', 1,0,22 );
+fprintf( 'Running PG version: %d.%d.%d\n', 1,0,24 );
 
 [params, exitCode] = parse_arguments(arglist);
 
@@ -50,14 +50,18 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
         params.grdRotation = tmpParams.grdRotation(1);
 
         params.rsf = tmpParams.rsf;
+        
     end
-
-
+    
+%     pg_dbg_plot_grid(params); colormap jet;
+    
     if exitCode == 0
         [params, exitCode] = pg_seg_segment_image(params);
     end
 
-    
+%     %% Debugging code
+%     pg_dbg_plot_grid(params, 'imgSeg', 'plotCircle');
+    %%
     
     if exitCode == 0
         params.grdRotation = saveRotation;
@@ -76,33 +80,6 @@ if exitCode == 0 && strcmpi(params.pgMode, 'grid')
     if strcmpi(params.dbgPrintOutput, 'yes')
         disp(readlines(params.outputfile));
     end
-
-    
-%     figure('Renderer', 'painters', 'Position', [10 10 800 600])
-%     imagesc(params.image_seg); hold on;
-%     
-%     title( sprintf('Seg. Method: %s (Max. Diameter: %.2f)', ...
-%         params.segMethod, params.sqcMaxDiameter) );
-%     
-%     spots = params.spots;
-%     
-%     for i = 1:length(spots)
-%         if isfield(spots(i), 'diameter') && ~isempty(spots(i).diameter)
-%             r = spots(i).diameter/2;
-%         else
-%             r = 12.5/2;
-%         end
-%         x0 = spots(i).finalMidpoint(1);
-%         y0 = spots(i).finalMidpoint(2);
-%         th = 0:pi/40:2*pi;
-%         xunit = r * cos(th) + x0;
-%         yunit = r * sin(th) + y0;
-%         plot(yunit, xunit, 'k');
-%         plot(y0, x0, '.k');
-% %         axis([200 520 100 400]);
-%     end
-    
-
 end
 
 
@@ -120,6 +97,8 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     if exitCode == 0
         [params, exitCode] = pg_seg_segment_image(params);
     end
+    
+%     pg_dbg_plot_grid(params, 'imgSeg', 'plotCircle');
 
     if exitCode == 0
         [params, exitCode] = pg_qnt_quantify(params);  
@@ -143,22 +122,6 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
     [~, qTypes, qntTbl] = pg_qnt_parse_results(params);
 
 
-    %permute qTypes from: Spot-QuantitationType-Array 
-    % % to : Array-Spot-QuantitationType
-    qTypes = permute(qTypes, [3,1,2]);
-    if strcmpi(params.dbgShowPresenter, 'yes') 
-        if length(unique(cycles))> 1
-            x = cycles;
-        else
-            x = expTime;
-        end
-        qTypes = permute(qTypes, [1,3,2]);
-        params.qTypes= qTypes;
-        hViewer = presenter(I, params, x);
-        
-        set(hViewer, 'Name', 'PamGridViewer');
-        uiwait(hViewer);
-    end
     
 end
     

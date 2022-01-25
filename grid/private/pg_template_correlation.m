@@ -17,6 +17,7 @@ for i=1:size(fftRotTemplate,3)
     C(~roiSearch) = NaN;
     [mx, idx] = nanmax(C(:));
    
+   
     c(i) = mx(1);
     [x,y] = ind2sub(size(C), idx(1));
     % ====================
@@ -77,15 +78,15 @@ end
 
 if size(fftRotTemplate,3) ~= 1
     [~, iRot] = max(c);
-
     mxcor     = mxcor(iRot,:);
     rot = NaN;
-else
-    rotations = -2:0.25:2;
 
-    discRot = abs(rot - rotations);
-    [~,k] = min(discRot);
+else
+%     rotations = -4:0.001:4;
+% 
+%     discRot = abs(rot - rotations);
+%     [~,k] = min(discRot);
     iRot = 0;
-    rot=rotations(k);
+%     rot=rotations(k);
 
 end

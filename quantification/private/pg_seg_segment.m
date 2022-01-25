@@ -72,36 +72,10 @@ switch params.segMethod
         
         if any(~bFxd)
             params.spots(~bFxd) = pg_seg_segment_by_hough(params, I, cx(~bFxd), cy(~bFxd), rotation);
-%             clf; imagesc(I); hold on;
-%             fp = [params.spots.finalMidpoint];
-%             plot( fp(2:2:end), fp(1:2:end), '.k' );
-
-%   clf;
-%     imagesc(params.image_seg); hold on;
-%     spots = params.spots;
-%     
-%     for i = 1:length(spots)
-%         if isfield(spots(i), 'diameter') && ~isempty(spots(i).diameter)
-%             r = spots(i).diameter/2;
-%         else
-%             r = 12.5/2;
-%         end
-%         x0 = spots(i).finalMidpoint(1);
-%         y0 = spots(i).finalMidpoint(2);
-%         th = 0:pi/40:2*pi;
-%         try
-%         xunit = r * cos(th) + x0;
-%         yunit = r * sin(th) + y0;
-%         plot(yunit, xunit, 'k');
-%         catch err
-%            disp('.'); 
-%         end
-%     end
         end
 
-        
         if any(bFxd)
-            params.spots(bFxd)  = pg_seg_segment_by_edge_fxd_mp(params, I, cx(bFxd), cy(bFxd), rotation); 
+            params.spots(bFxd)  = pg_seg_segment_by_hough_fxd_mp(params, I, cx(bFxd), cy(bFxd), rotation); 
         end
 end
 

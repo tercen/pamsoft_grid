@@ -69,22 +69,23 @@ switch params.prpContrast
             q99 = quantile(Ipp(:), [0.8 0.99]);
         else
             q99 = quantile(Ipp(:),0.99);
+
         end
 
+        
         % if the adjust step fails, refer to equalize:
         try 
-%             Ipp = imadjust(Ipp, [bgLevel, double(q99)]/bDepth);
             if params.grdRotation == 0
                  Ipp = imadjust(Ipp, [double(q99(1)), double(q99(2))]/bDepth);
             else
-                 Ipp = imadjust(Ipp, [bgLevel, double(q99)]/bDepth);
+                Ipp = imadjust(Ipp, [bgLevel, double(q99)]/bDepth);
             end
             
             Ipp = histeq(Ipp);
         catch err
-            err
             Ipp = histeq(Ipp);
         end
+
 end
 
 %EOF

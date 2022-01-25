@@ -50,7 +50,12 @@ function exitCode = pg_io_save_params(params, fields)
         
     end
 
-    
+    if params.dbgSaveFullpath == 1
+        imgPath = fileparts( params.imageslist{1} );
+        for i = 1:length(tbl.grdImageNameUsed)
+            tbl.grdImageNameUsed{i} = cat(2, imgPath, filesep, tbl.grdImageNameUsed{i});
+        end
+    end
     
     writetable(tbl, params.outputfile );
     

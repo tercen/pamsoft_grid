@@ -123,12 +123,7 @@ end
 % replace bad spots by the default spot
 params.spots(flags == 1) = pg_seg_set_as_dft_spot(params.spots(flags == 1));
 
-if xr ~= -100
-    for i = 1:length(params.spots)
-%         params.spots(i).finalMidpoint = [xr(i)+2./params.rsf(1)   yr(i)-2./params.rsf(1)];
-% params.spots(i).finalMidpoint = [xr(i)  yr(i)];
-    end
-end
+
 
 % create the array of spotQuantification objects for output.
 params.seg_res.isEmpty    = flags == 2;

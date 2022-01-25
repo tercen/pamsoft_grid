@@ -1,6 +1,6 @@
 function spots = pg_seg_segment_by_edge_fxd_mp(params, I, cx, cy, ~)
 spotPitch =  mean(params.grdSpotPitch);
-
+dftRadius = 0.6 * spotPitch;
 %  get the left upper coordinates and right lower coordinates
 xLu = round(cx - spotPitch);
 yLu = round(cy - spotPitch);
@@ -99,12 +99,24 @@ for i = 1:length(cx(:))
         Ilocal = false(size(Ilocal));
         params.spots(i).diameter = 2*r;
         params.spots(i).chisqr   = nChiSqr;
+        params.spots(i).isFound  = 1;
         
         if(length(r)>1), r = r(i); end
         [xFit, yFit] = pg_circle([cx(i),cy(i)],r,round(pi*r)/2);
         Ilocal = roipoly(Ilocal, yFit, xFit);
         params.spots(i).bsTrue    = find(Ilocal);
-        params.spots(i).bsSize = size(Ilocal);
+        params.spots(i).bsSize    = size(Ilocal);
+    else
+        Ilocal = false(size(Ilocal));
+        params.spots(i).isFound  = 0;
+        r = dftRadius/2;
+        params.spots(i).diameter = dftRadius;
+        params.spots(i).chisqr   = 0;
+        
+        [xFit, yFit] = pg_circle([cx(i),cy(i)],r,round(pi*r)/2);
+        Ilocal = roipoly(Ilocal, yFit, xFit);
+        params.spots(i).bsTrue    = find(Ilocal);
+        params.spots(i).bsSize    = size(Ilocal);
     end
 end
 

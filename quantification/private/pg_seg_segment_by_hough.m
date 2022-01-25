@@ -1,6 +1,8 @@
 function spots = pg_seg_segment_by_hough(params, I, cx, cy, ~)
 spotPitch =  mean(params.grdSpotPitch);
 
+dftRadius = 0.6 * spotPitch;
+
 xLu = round(cx - spotPitch);
 yLu = round(cy - spotPitch);
 xRl = round(cx + spotPitch);
@@ -47,6 +49,9 @@ if ~isfield( params, 'spots' )
     spot         = pg_seg_create_spot_structure(params);
     params.spots = repmat(spot, length(cx(:)), 1);
 end
+
+
+
 
 for i = 1:length(cx(:))
     %%
@@ -184,11 +189,16 @@ for i = 1:length(cx(:))
     
     if spotFound
         params.spots(i).diameter = diam;
+        params.spots(i).isFound  = 1;
         r = diam/2;
-        
-        [xFit, yFit] = pg_circle([x0,y0],r,round(pi*r)/2);
-        Ilocal = roipoly(Ilocal, yFit, xFit);
+    else
+        params.spots(i).diameter = dftRadius;
+        params.spots(i).isFound  = 0;
+        r = dftRadius/2;
     end
+    
+    [xFit, yFit] = pg_circle([x0,y0],r,round(pi*r)/2);
+    Ilocal = roipoly(Ilocal, yFit, xFit);
     
     params.spots(i).bsSize = size(Ilocal);
     params.spots(i).bsTrue = find(Ilocal);
@@ -199,9 +209,6 @@ for i = 1:length(cx(:))
     
     params.spots(i).finalMidpoint = [x0, y0];
 
-    
-    
-    
     
 end
 

@@ -40,6 +40,7 @@ function [params, exitCode] = pg_io_read_params_json(params, jsonFile)
                 params.imageslist = cellstr(params.imageslist);
             end
 
+            
             % The code is expecting column format, but arrays come in row
             % format from the JSON parsing
             % If that is the case, we transpose it
@@ -81,13 +82,14 @@ function params = pg_io_get_default_params(params)
     params.grdSearchDiameter = 15;
     params.grdXOffset        = [];
     params.grdYOffset        = [];
-    params.grdXFixedPostion  = [];
-    params.grdYFixedPostion  = [];
+    params.grdXFixedPosition  = [];
+    params.grdYFixedPosition  = [];
     params.grdUseImage       = 'Last'; %Last, First, FirstLast, All, EXPOSURE_CYCLE
     params.grdOptimizeSpotPitch = 'yes';
     params.grdOptimizeRefVsSub  = 'no';
     params.gridImageSize        = [256, 256];
     params.grdMethod            = 'correlation2D';
+    params.dbgSaveFullpath      = 0;
     
     
     % Segmentation properties
