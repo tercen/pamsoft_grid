@@ -23,8 +23,8 @@ for k = 1:size(quant,2)
 
         % @FIXME MAYBE OUTLIERS ARE NOT BEING SAVE IN THE LEGACY CODE
         % In the tests, all spots were marked as outliers...
-        
-        bOut = true;%logical(params.segOutliers(i));
+        bOut = true;
+        %logical(params.segOutliers(i));
         %         if isempty(oq(i).oOutlier)
         %             bOut = false;
         %         else
@@ -41,8 +41,6 @@ for k = 1:size(quant,2)
 %         
         
         if ~isempty(idxSignal) 
-%&& ~isempty(iOutSignal)
-%%
             sigPix = I(idxSignal); % vector of pixels making up the spot
 
             if bOut
@@ -92,8 +90,7 @@ for k = 1:size(quant,2)
             end
             nPix = length(sigPix(~iOutSignal));
             
-
-            if any(iOutSignal) && any(sigPix) && ~isstruct(sigPix(~iOutSignal) )
+            if all(sigPix(~iOutSignal) == params.qntSaturationLimit) ||  (any(iOutSignal) && any(sigPix) && ~isstruct(sigPix(~iOutSignal) ))
                 quant(i,k).signalSaturation = length(find(sigPix(~iOutSignal) >= params.qntSaturationLimit))/nPix;
             else
                 quant(i,k).signalSaturation = 0;
