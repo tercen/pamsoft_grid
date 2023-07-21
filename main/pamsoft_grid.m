@@ -1,5 +1,5 @@
 function pamsoft_grid(arglist)
-fprintf( 'Running PG version: %d.%d.%d\n', 1,0,24 );
+fprintf( 'Running PG version: %d.%d.%d\n', 1,0,26 );
 
 [params, exitCode] = parse_arguments(arglist);
 
@@ -98,7 +98,9 @@ if exitCode == 0 && strcmpi(params.pgMode, 'quantification')
         [params, exitCode] = pg_seg_segment_image(params);
     end
     
-%     pg_dbg_plot_grid(params, 'imgSeg', 'plotCircle');
+    %imagesc(params.images); hold on;
+    %circle(params.spots(142).finalMidpoint(2), params.spots(142).finalMidpoint(1),8)
+    % pg_dbg_plot_grid(params, 'imgSeg', 'plotCircle');
 
     if exitCode == 0
         [params, exitCode] = pg_qnt_quantify(params);  
@@ -181,4 +183,14 @@ function [params, exitCode] = parse_arguments(argline)
     end
 
     params.(argName) = strtrim(argVal(2:end));
+end
+
+
+function h = circle(x,y,r)
+        hold on
+        th = 0:pi/50:2*pi;
+        xunit = r * cos(th) + x;
+        yunit = r * sin(th) + y;
+        h = plot(xunit, yunit);
+        hold off
 end
