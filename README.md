@@ -34,7 +34,10 @@ docker run -it --rm \
 # Build docker (as latest version)
 
 ```shell
-docker build -t tercen/pamsoft_grid .
+docker build -t tercen/pamsoft_grid:2.0.1 .
+
+docker push tercen/pamsoft_grid:2.0.1
+
 ``` 
 
 # Run gridding
