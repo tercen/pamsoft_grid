@@ -1,0 +1,53 @@
+{
+  "mode": "batch",
+  "numWorkers": 2,
+  "progressFile": "/tmp/progress.txt",
+  "outputFile": "/tmp/batch_results.csv",
+  "imageGroups": [
+    {
+      "groupId": "1",
+      "sqcMinDiameter": 0.45,
+      "sqcMaxDiameter": 0.85,
+      "segEdgeSensitivity": [0, 0.01],
+      "qntSeriesMode": 0,
+      "qntShowPamGridViewer": 0,
+      "grdSpotPitch": 21.5,
+      "grdSpotSize": 0.66,
+      "grdRotation": [-2, -1.75, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+      "qntSaturationLimit": 4095,
+      "segMethod": "Edge",
+      "grdUseImage": "First",
+      "pgMode": "grid",
+      "dbgShowPresenter": 0,
+      "arraylayoutfile": "/test/data/631158404_631158405_631158406 86312 Array Layout.txt",
+      "imageslist": [
+        "/test/data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T10_P94_I157_A30.tif",
+        "/test/data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T20_P94_I169_A30.tif",
+        "/test/data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P94_I181_A30.tif"
+      ]
+    },
+    {
+      "groupId": "2",
+      "sqcMinDiameter": 0.45,
+      "sqcMaxDiameter": 0.85,
+      "segEdgeSensitivity": [0, 0.01],
+      "qntSeriesMode": 0,
+      "qntShowPamGridViewer": 0,
+      "grdSpotPitch": 21.5,
+      "grdSpotSize": 0.66,
+      "grdRotation": [-2, -1.75, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+      "qntSaturationLimit": 4095,
+      "segMethod": "Edge",
+      "grdUseImage": "Last",
+      "pgMode": "grid",
+      "dbgShowPresenter": 0,
+      "arraylayoutfile": "/test/data/631158404_631158405_631158406 86312 Array Layout.txt",
+      "imageslist": [
+        "/test/data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P32_I1_A30.tif",
+        "/test/data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P37_I13_A30.tif",
+        "/test/data/631158404_631158405_631158406-ImageResults/631158404_W1_F1_T50_P42_I25_A30.tif"
+      ]
+    }
+  ],
+  "dbgPrintOutput": "yes"
+}
