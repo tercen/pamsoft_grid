@@ -358,87 +358,145 @@ pub fn generate_grid_coordinates(
         return spots;
     }
 
-    // Calculate grid midpoint using ONLY regular spots (positive row/col)
-    let regular_spots: Vec<(f64, f64)> = layout.iter()
+    // MATLAB calls pg_grid_coordinates separately for regular and reference spots
+    // Each calculates its OWN midpoint from its OWN rows/cols (after abs())
+    // See pg_grid_find.m lines 114-121
+
+    // Separate regular and reference spots
+    let regular_spots: Vec<(String, bool, i32, i32)> = layout.iter()
         .filter(|(_, is_ref, r, c)| *r > 0 && *c > 0 && !*is_ref)
-        .map(|(_, _, r, c)| (*r as f64, *c as f64))
+        .cloned()
         .collect();
 
-    if regular_spots.is_empty() {
-        tracing::warn!("No regular spots found in layout, cannot calculate grid midpoint");
-        return spots;
-    }
+    let reference_spots: Vec<(String, bool, i32, i32)> = layout.iter()
+        .filter(|(_, is_ref, r, c)| !(*r > 0 && *c > 0) || *is_ref)
+        .cloned()
+        .collect();
 
-    let row_min = regular_spots.iter().map(|(r, _)| *r).fold(f64::INFINITY, f64::min);
-    let row_max = regular_spots.iter().map(|(r, _)| *r).fold(f64::NEG_INFINITY, f64::max);
-    let col_min = regular_spots.iter().map(|(_, c)| *c).fold(f64::INFINITY, f64::min);
-    let col_max = regular_spots.iter().map(|(_, c)| *c).fold(f64::NEG_INFINITY, f64::max);
+    // Process regular spots with their own midpoint
+    if !regular_spots.is_empty() {
+        let reg_rows: Vec<f64> = regular_spots.iter()
+            .map(|(_, _, r, _)| r.abs() as f64)
+            .collect();
+        let reg_cols: Vec<f64> = regular_spots.iter()
+            .map(|(_, _, _, c)| c.abs() as f64)
+            .collect();
 
-    // Matching MATLAB: rmp = min(row) + (max(row)-min(row))/2
-    let row_midpoint = row_min + (row_max - row_min) / 2.0;
-    let col_midpoint = col_min + (col_max - col_min) / 2.0;
+        let row_min = reg_rows.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let row_max = reg_rows.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let col_min = reg_cols.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let col_max = reg_cols.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-    tracing::debug!(
-        "Grid midpoint calculated from regular spots: rows [{:.0}-{:.0}], cols [{:.0}-{:.0}], midpoint=({:.1}, {:.1})",
-        row_min, row_max, col_min, col_max, row_midpoint, col_midpoint
-    );
+        let row_midpoint = row_min + (row_max - row_min) / 2.0;
+        let col_midpoint = col_min + (col_max - col_min) / 2.0;
 
-    for (id, is_ref, row, col) in layout {
-        let abs_x: f64;
-        let abs_y: f64;
+        tracing::debug!(
+            "Regular spots midpoint: rows [{:.0}-{:.0}], cols [{:.0}-{:.0}], midpoint=({:.1}, {:.1})",
+            row_min, row_max, col_min, col_max, row_midpoint, col_midpoint
+        );
 
-        if *is_ref {
-            // Reference spots are NOT positioned using the grid formula.
-            // In MATLAB, they are detected from the image and used as fiducial markers.
-            // Their positions in the MATLAB reference don't match any formula calculation.
-            // TODO: Implement reference spot detection from image (FFT template matching)
-            // For now, mark them with 0,0 to indicate they need detection
-            abs_x = 0.0;
-            abs_y = 0.0;
-        } else {
-            // Regular spots use the grid formula with abs() on indices
+        for (id, is_ref, row, col) in regular_spots {
             let r = row.abs() as f64;
             let c = col.abs() as f64;
 
-            // MATLAB line 47-48: x = spotPitch(1)*(row-rmp) + spotPitch(1) * x0;
             let rel_x = spot_pitch * (r - row_midpoint);
             let rel_y = spot_pitch * (c - col_midpoint);
 
-            // MATLAB line 51-56: rotate the grid
             let (rot_x, rot_y) = rotate_point(rel_x, rel_y, rotation);
 
-            // MATLAB line 59-60: x = mp(1) + x + 1; (we're 0-based, so no +1)
-            abs_x = center.0 + rot_x;
-            abs_y = center.1 + rot_y;
-        }
+            let abs_x = center.0 + rot_x;
+            let abs_y = center.1 + rot_y;
 
-        // DEBUG: Log first few spots
-        if spots.len() < 3 || (*row == 1 && *col == 1) {
+            // DEBUG: Log first few spots
+            if spots.len() < 3 || (row == 1 && col == 1) {
+                tracing::info!(
+                    "Regular spot row={}, col={}, abs_x={:.1}, abs_y={:.1}",
+                    row, col, abs_x, abs_y
+                );
+            }
+
+            let spot = Spot {
+                id: id.clone(),
+                row,
+                col,
+                is_reference: is_ref,
+                x_offset: 0.0,
+                y_offset: 0.0,
+                x_fixed: 0.0,
+                y_fixed: 0.0,
+                grid_x: abs_x,
+                grid_y: abs_y,
+                diameter: 0.0,
+                is_manual: false,
+                is_bad: false,
+                is_empty: false,
+                rotation,
+            };
+
+            spots.push(spot);
+        }
+    }
+
+    // Process reference spots with their own midpoint
+    if !reference_spots.is_empty() {
+        let ref_rows: Vec<f64> = reference_spots.iter()
+            .map(|(_, _, r, _)| r.abs() as f64)
+            .collect();
+        let ref_cols: Vec<f64> = reference_spots.iter()
+            .map(|(_, _, _, c)| c.abs() as f64)
+            .collect();
+
+        let row_min = ref_rows.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let row_max = ref_rows.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let col_min = ref_cols.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let col_max = ref_cols.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+
+        let row_midpoint = row_min + (row_max - row_min) / 2.0;
+        let col_midpoint = col_min + (col_max - col_min) / 2.0;
+
+        tracing::debug!(
+            "Reference spots midpoint: rows [{:.0}-{:.0}], cols [{:.0}-{:.0}], midpoint=({:.1}, {:.1})",
+            row_min, row_max, col_min, col_max, row_midpoint, col_midpoint
+        );
+
+        for (id, is_ref, row, col) in reference_spots {
+            let r = row.abs() as f64;
+            let c = col.abs() as f64;
+
+            let rel_x = spot_pitch * (r - row_midpoint);
+            let rel_y = spot_pitch * (c - col_midpoint);
+
+            let (rot_x, rot_y) = rotate_point(rel_x, rel_y, rotation);
+
+            let abs_x = center.0 + rot_x;
+            let abs_y = center.1 + rot_y;
+
+            // DEBUG: Log reference spots
             tracing::info!(
-                "Spot row={}, col={}, is_ref={}, abs_x={:.1}, abs_y={:.1}",
-                row, col, is_ref, abs_x, abs_y
+                "Reference spot row={}, col={}, abs_x={:.1}, abs_y={:.1}",
+                row, col, abs_x, abs_y
             );
+
+            let spot = Spot {
+                id: id.clone(),
+                row,
+                col,
+                is_reference: is_ref,
+                x_offset: 0.0,
+                y_offset: 0.0,
+                x_fixed: 0.0,
+                y_fixed: 0.0,
+                grid_x: abs_x,
+                grid_y: abs_y,
+                diameter: 0.0,
+                is_manual: false,
+                is_bad: false,
+                is_empty: false,
+                rotation,
+            };
+
+            spots.push(spot);
         }
-
-        let spot = Spot {
-            id: id.clone(),
-            row: *row,
-            col: *col,
-            is_reference: *is_ref,
-            x_offset: 0.0,
-            y_offset: 0.0,
-            x_fixed: 0.0,
-            y_fixed: 0.0,
-            grid_x: abs_x,
-            grid_y: abs_y,
-            diameter: 0.0,
-            is_manual: false,
-            is_bad: false,
-            is_empty: false,
-            rotation,
-        };
-
-        spots.push(spot);
     }
 
     spots
