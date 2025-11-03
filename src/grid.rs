@@ -384,27 +384,39 @@ pub fn generate_grid_coordinates(
     );
 
     for (id, is_ref, row, col) in layout {
-        // MATLAB line 40-41: row = abs(row); col = abs(col);
-        let r = row.abs() as f64;
-        let c = col.abs() as f64;
+        let abs_x: f64;
+        let abs_y: f64;
 
-        // MATLAB line 47-48: x = spotPitch(1)*(row-rmp) + spotPitch(1) * x0;
-        // (x0, y0 are 0 for now)
-        let rel_x = spot_pitch * (r - row_midpoint);
-        let rel_y = spot_pitch * (c - col_midpoint);
+        if *is_ref {
+            // Reference spots are NOT positioned using the grid formula.
+            // In MATLAB, they are detected from the image and used as fiducial markers.
+            // Their positions in the MATLAB reference don't match any formula calculation.
+            // TODO: Implement reference spot detection from image (FFT template matching)
+            // For now, mark them with 0,0 to indicate they need detection
+            abs_x = 0.0;
+            abs_y = 0.0;
+        } else {
+            // Regular spots use the grid formula with abs() on indices
+            let r = row.abs() as f64;
+            let c = col.abs() as f64;
 
-        // MATLAB line 51-56: rotate the grid
-        let (rot_x, rot_y) = rotate_point(rel_x, rel_y, rotation);
+            // MATLAB line 47-48: x = spotPitch(1)*(row-rmp) + spotPitch(1) * x0;
+            let rel_x = spot_pitch * (r - row_midpoint);
+            let rel_y = spot_pitch * (c - col_midpoint);
 
-        // MATLAB line 59-60: x = mp(1) + x + 1; (we're 0-based, so no +1)
-        let abs_x = center.0 + rot_x;
-        let abs_y = center.1 + rot_y;
+            // MATLAB line 51-56: rotate the grid
+            let (rot_x, rot_y) = rotate_point(rel_x, rel_y, rotation);
+
+            // MATLAB line 59-60: x = mp(1) + x + 1; (we're 0-based, so no +1)
+            abs_x = center.0 + rot_x;
+            abs_y = center.1 + rot_y;
+        }
 
         // DEBUG: Log first few spots
         if spots.len() < 3 || (*row == 1 && *col == 1) {
             tracing::info!(
-                "Spot row={}, col={}, r={:.1}, c={:.1}, rel_x={:.1}, rel_y={:.1}, abs_x={:.1}, abs_y={:.1}",
-                row, col, r, c, rel_x, rel_y, abs_x, abs_y
+                "Spot row={}, col={}, is_ref={}, abs_x={:.1}, abs_y={:.1}",
+                row, col, is_ref, abs_x, abs_y
             );
         }
 
