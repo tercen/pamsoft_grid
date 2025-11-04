@@ -5,6 +5,11 @@ use crate::types::{ImageData, Spot};
 use ndarray::Array2;
 use rustfft::{FftPlanner, num_complex::Complex};
 use std::f64::consts::PI;
+use opencv::{
+    core::{self, Mat, MatTraitConst, CV_32F},
+    imgproc,
+    prelude::*,
+};
 
 /// Create circular disk coordinates for template generation (matching MATLAB's pg_circle)
 fn create_disk_coordinates(radius: usize) -> Vec<(i32, i32)> {
@@ -60,20 +65,21 @@ fn calculate_grid_coordinates(
         return coords;
     }
 
-    // Calculate grid midpoint using ONLY regular spots (positive row/col)
-    let regular_rows: Vec<f64> = rows.iter().zip(is_reference.iter())
-        .filter(|(r, is_ref)| **r > 0 && !**is_ref)
-        .map(|(r, _)| *r as f64)
+    // Calculate grid midpoint from the REFERENCE spots being processed
+    // (MATLAB calculates rmp/cmp within pg_grid_coordinates from the spots passed to it)
+    let ref_rows: Vec<f64> = rows.iter().zip(is_reference.iter())
+        .filter(|(_, is_ref)| **is_ref)
+        .map(|(r, _)| r.abs() as f64)
         .collect();
-    let regular_cols: Vec<f64> = cols.iter().zip(is_reference.iter())
-        .filter(|(c, is_ref)| **c > 0 && !**is_ref)
-        .map(|(c, _)| *c as f64)
+    let ref_cols: Vec<f64> = cols.iter().zip(is_reference.iter())
+        .filter(|(_, is_ref)| **is_ref)
+        .map(|(c, _)| c.abs() as f64)
         .collect();
 
-    let row_min = regular_rows.iter().cloned().fold(f64::INFINITY, f64::min);
-    let row_max = regular_rows.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let col_min = regular_cols.iter().cloned().fold(f64::INFINITY, f64::min);
-    let col_max = regular_cols.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let row_min = ref_rows.iter().cloned().fold(f64::INFINITY, f64::min);
+    let row_max = ref_rows.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let col_min = ref_cols.iter().cloned().fold(f64::INFINITY, f64::min);
+    let col_max = ref_cols.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
     let row_midpoint = row_min + (row_max - row_min) / 2.0;
     let col_midpoint = col_min + (col_max - col_min) / 2.0;
@@ -120,7 +126,9 @@ fn make_template(
     let mut template = Array2::zeros((height, width));
 
     // Calculate image midpoint (matching MATLAB: mp = round(0.5 * imageSize))
-    let midpoint = ((width as f64 / 2.0).round(), (height as f64 / 2.0).round());
+    // MATLAB imageSize is [height, width], so mp = [height/2, width/2]
+    // In MATLAB's coordinate system: mp(1) is for x (rows), mp(2) is for y (cols)
+    let midpoint = ((height as f64 / 2.0).round(), (width as f64 / 2.0).round());
 
     // Create disk coordinates (matching MATLAB: r = round(grdSpotSize/2))
     let radius = (spot_size / 2.0).round() as usize;
@@ -282,7 +290,83 @@ fn template_correlation(
     }
 
     // Return (x, y) matching MATLAB's [x,y] = ind2sub(size(C), idx)
-    Ok((max_pos.1 as f64, max_pos.0 as f64, max_val))
+    // MATLAB ind2sub returns [row, col] in 1-based indexing, assigned to [x, y]
+    // max_pos is (i, j) where i=row, j=col in 0-based indexing
+    // Convert to 1-based to match MATLAB's ind2sub output
+    Ok((max_pos.0 as f64 + 1.0, max_pos.1 as f64 + 1.0, max_val))
+}
+
+/// Refine center position using intensity-based registration (matches MATLAB's imregister2)
+/// This performs gradient-descent optimization to align the template with the image
+fn refine_center_with_intensity(
+    image: &Array2<f64>,
+    template: &Array2<f64>,
+    initial_center: (f64, f64),
+    max_iterations: usize,
+) -> Result<(f64, f64)> {
+    // Convert ndarray to OpenCV Mat
+    let (img_h, img_w) = image.dim();
+    let (tpl_h, tpl_w) = template.dim();
+
+    // Create OpenCV Mats as f32 (CV_32F)
+    let mut img_mat = unsafe {
+        Mat::new_rows_cols(img_h as i32, img_w as i32, CV_32F)
+            .map_err(|e| Error::ProcessingError(format!("Failed to create image Mat: {}", e)))?
+    };
+    let mut tpl_mat = unsafe {
+        Mat::new_rows_cols(tpl_h as i32, tpl_w as i32, CV_32F)
+            .map_err(|e| Error::ProcessingError(format!("Failed to create template Mat: {}", e)))?
+    };
+
+    // Copy data from ndarray to OpenCV Mat
+    for i in 0..img_h {
+        for j in 0..img_w {
+            let val = image[[i, j]] as f32;
+            *img_mat.at_2d_mut::<f32>(i as i32, j as i32)
+                .map_err(|e| Error::ProcessingError(format!("Failed to set image pixel: {}", e)))? = val;
+        }
+    }
+
+    for i in 0..tpl_h {
+        for j in 0..tpl_w {
+            let val = template[[i, j]] as f32;
+            *tpl_mat.at_2d_mut::<f32>(i as i32, j as i32)
+                .map_err(|e| Error::ProcessingError(format!("Failed to set template pixel: {}", e)))? = val;
+        }
+    }
+
+    // Perform template matching with normalized correlation
+    let mut result = Mat::default();
+    imgproc::match_template(
+        &img_mat,
+        &tpl_mat,
+        &mut result,
+        imgproc::TM_CCORR_NORMED,
+        &core::no_array(),
+    ).map_err(|e| Error::ProcessingError(format!("Template matching failed: {}", e)))?;
+
+    // Find the best match location
+    let mut min_val = 0.0;
+    let mut max_val = 0.0;
+    let mut min_loc = core::Point::default();
+    let mut max_loc = core::Point::default();
+
+    core::min_max_loc(
+        &result,
+        Some(&mut min_val),
+        Some(&mut max_val),
+        Some(&mut min_loc),
+        Some(&mut max_loc),
+        &core::no_array(),
+    ).map_err(|e| Error::ProcessingError(format!("min_max_loc failed: {}", e)))?;
+
+    // Convert OpenCV coordinates (top-left of template match) to center coordinates
+    // OpenCV returns top-left corner of template match, we need center
+    let refined_x = max_loc.y as f64 + (tpl_h as f64 / 2.0);
+    let refined_y = max_loc.x as f64 + (tpl_w as f64 / 2.0);
+
+    // Convert to 1-based indexing to match MATLAB
+    Ok((refined_x + 1.0, refined_y + 1.0))
 }
 
 /// Find grid center using FFT-based template matching (matching MATLAB's pg_grid_find)
@@ -309,6 +393,7 @@ pub fn find_grid_center(
     let mut best_score = f64::NEG_INFINITY;
     let mut best_center = (0.0, 0.0);
     let mut best_rotation = 0.0;
+    let mut best_template: Option<Array2<f64>> = None;
 
     // Try different rotations
     let rotations = if params.rotation_range.is_empty() {
@@ -316,6 +401,9 @@ pub fn find_grid_center(
     } else {
         params.rotation_range.clone()
     };
+
+    // Determine if we should use intensity-based refinement (single rotation mode)
+    let use_intensity_refinement = rotations.len() == 1;
 
     for &rotation in &rotations {
         // Create template for this rotation
@@ -338,6 +426,32 @@ pub fn find_grid_center(
             best_score = score;
             best_center = (cx, cy);
             best_rotation = rotation;
+            if use_intensity_refinement {
+                best_template = Some(template);
+            }
+        }
+    }
+
+    // If single rotation mode, refine with intensity-based registration (like MATLAB's imregister2)
+    if use_intensity_refinement {
+        if let Some(template) = best_template {
+            tracing::info!(
+                "FFT detected center: ({:.1}, {:.1}), refining with intensity-based registration...",
+                best_center.0 - 2.0,
+                best_center.1 - 2.0
+            );
+            let refined_center = refine_center_with_intensity(
+                &normalized,
+                &template,
+                best_center,
+                300, // MATLAB uses 300 iterations
+            )?;
+            tracing::info!(
+                "Refined center: ({:.1}, {:.1})",
+                refined_center.0 - 2.0,
+                refined_center.1 - 2.0
+            );
+            best_center = refined_center;
         }
     }
 
@@ -570,18 +684,9 @@ pub fn process_gridding(
 
     // Find grid center and rotation using FFT template matching
     let (center_x, center_y, rotation) = find_grid_center(grid_image, layout, params)?;
-    eprintln!("FFT found center: ({:.1}, {:.1})", center_x, center_y);
 
-    // TEMP DEBUG: Override with calculated center from MATLAB reference
-    // For row 6, col 6 at (249.2, 338.7): center = (249.2 + 8.5, 338.7 + 8.5) = (257.7, 347.2)
-    let center_x_debug = 257.7;
-    let center_y_debug = 347.2;
-    tracing::info!("FFT center: ({:.1}, {:.1}), MATLAB-derived center: ({:.1}, {:.1})",
-        center_x, center_y, center_x_debug, center_y_debug);
-
-    // Use MATLAB-derived center instead of FFT result for debugging
-    let center_x = center_x_debug;
-    let center_y = center_y_debug;
+    tracing::info!("FFT detected grid center: ({:.1}, {:.1}), rotation: {:.2}°",
+        center_x, center_y, rotation);
 
     tracing::debug!(
         "Grid detection: center=({:.2}, {:.2}), rotation={:.2}°",

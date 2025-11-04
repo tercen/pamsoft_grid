@@ -112,6 +112,8 @@ impl Default for GridParams {
             // Grid parameters
             spot_pitch: 21.5,
             spot_size: 0.66,
+            // Use single rotation with OpenCV intensity-based refinement
+            // This matches MATLAB's single-rotation mode (imregister2) and achieves ~1.3px accuracy
             rotation_range: vec![0.0],
             search_diameter: 15.0,
             array_layout_file: None,
