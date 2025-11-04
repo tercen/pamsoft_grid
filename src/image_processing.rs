@@ -311,6 +311,216 @@ pub fn find_max_2d(data: &Array2<f64>) -> Option<(f64, (usize, usize))> {
     }
 }
 
+/// Canny edge detection with hysteresis thresholding
+/// Implements the complete Canny algorithm matching MATLAB's edge() function
+///
+/// # Arguments
+/// * `image` - Input grayscale image (normalized 0-1)
+/// * `low_threshold` - Low threshold for hysteresis (0-1)
+/// * `high_threshold` - High threshold for hysteresis (0-1)
+/// * `sigma` - Gaussian blur sigma (typically 1.0-2.0)
+///
+/// # Returns
+/// Binary edge map
+pub fn canny_edge_detection(
+    image: &Array2<f64>,
+    low_threshold: f64,
+    high_threshold: f64,
+    sigma: f64,
+) -> Array2<bool> {
+    // Step 1: Gaussian blur to reduce noise
+    let smoothed = gaussian_blur(image, sigma);
+
+    // Step 2: Compute gradients using Sobel operators
+    let (grad_x, grad_y) = compute_gradients_sobel(&smoothed);
+
+    // Step 3: Compute gradient magnitude and direction
+    let (magnitude, direction) = compute_gradient_magnitude_direction(&grad_x, &grad_y);
+
+    // Step 4: Non-maximum suppression
+    let suppressed = non_maximum_suppression(&magnitude, &direction);
+
+    // Step 5: Hysteresis thresholding
+    hysteresis_thresholding(&suppressed, low_threshold, high_threshold)
+}
+
+/// Compute gradients using Sobel operators
+fn compute_gradients_sobel(image: &Array2<f64>) -> (Array2<f64>, Array2<f64>) {
+    let (height, width) = image.dim();
+    let mut grad_x = Array2::<f64>::zeros((height, width));
+    let mut grad_y = Array2::<f64>::zeros((height, width));
+
+    // Sobel kernels
+    // Gx = [[-1, 0, 1],     Gy = [[-1, -2, -1],
+    //       [-2, 0, 2],           [ 0,  0,  0],
+    //       [-1, 0, 1]]           [ 1,  2,  1]]
+
+    for y in 1..height-1 {
+        for x in 1..width-1 {
+            // Sobel X (horizontal edges)
+            let gx = -image[[y-1, x-1]] + image[[y-1, x+1]]
+                   + -2.0 * image[[y, x-1]] + 2.0 * image[[y, x+1]]
+                   + -image[[y+1, x-1]] + image[[y+1, x+1]];
+
+            // Sobel Y (vertical edges)
+            let gy = -image[[y-1, x-1]] - 2.0 * image[[y-1, x]]  - image[[y-1, x+1]]
+                   + image[[y+1, x-1]] + 2.0 * image[[y+1, x]] + image[[y+1, x+1]];
+
+            grad_x[[y, x]] = gx;
+            grad_y[[y, x]] = gy;
+        }
+    }
+
+    (grad_x, grad_y)
+}
+
+/// Compute gradient magnitude and direction
+fn compute_gradient_magnitude_direction(grad_x: &Array2<f64>, grad_y: &Array2<f64>)
+    -> (Array2<f64>, Array2<f64>) {
+    let (height, width) = grad_x.dim();
+    let mut magnitude = Array2::<f64>::zeros((height, width));
+    let mut direction = Array2::<f64>::zeros((height, width));
+
+    for y in 0..height {
+        for x in 0..width {
+            let gx = grad_x[[y, x]];
+            let gy = grad_y[[y, x]];
+
+            magnitude[[y, x]] = (gx * gx + gy * gy).sqrt();
+            direction[[y, x]] = gy.atan2(gx);  // Returns angle in radians [-π, π]
+        }
+    }
+
+    (magnitude, direction)
+}
+
+/// Non-maximum suppression - thin edges to single pixel width
+fn non_maximum_suppression(magnitude: &Array2<f64>, direction: &Array2<f64>) -> Array2<f64> {
+    let (height, width) = magnitude.dim();
+    let mut suppressed = Array2::<f64>::zeros((height, width));
+
+    for y in 1..height-1 {
+        for x in 1..width-1 {
+            let mag = magnitude[[y, x]];
+            let angle = direction[[y, x]];
+
+            // Quantize angle to 0°, 45°, 90°, 135°
+            let angle_deg = angle.to_degrees();
+            let angle_quantized = ((angle_deg + 180.0) / 45.0).round() as i32 % 4;
+
+            // Compare with neighbors in gradient direction
+            let (n1, n2) = match angle_quantized {
+                0 => {
+                    // 0° - horizontal, compare left and right
+                    (magnitude[[y, x-1]], magnitude[[y, x+1]])
+                },
+                1 => {
+                    // 45° - diagonal /, compare NE and SW
+                    (magnitude[[y-1, x+1]], magnitude[[y+1, x-1]])
+                },
+                2 => {
+                    // 90° - vertical, compare up and down
+                    (magnitude[[y-1, x]], magnitude[[y+1, x]])
+                },
+                _ => {
+                    // 135° - diagonal \, compare NW and SE
+                    (magnitude[[y-1, x-1]], magnitude[[y+1, x+1]])
+                }
+            };
+
+            // Keep only if local maximum
+            if mag >= n1 && mag >= n2 {
+                suppressed[[y, x]] = mag;
+            }
+        }
+    }
+
+    suppressed
+}
+
+/// Hysteresis thresholding - connect strong edges through weak edges
+fn hysteresis_thresholding(
+    magnitude: &Array2<f64>,
+    low_threshold: f64,
+    high_threshold: f64,
+) -> Array2<bool> {
+    let (height, width) = magnitude.dim();
+    let mut edges = Array2::<bool>::default((height, width));
+    let mut visited = Array2::<bool>::default((height, width));
+
+    // Normalize thresholds if they're in 0-1 range
+    let max_magnitude = magnitude.iter().cloned().fold(0.0, f64::max);
+    let high_thresh = if high_threshold <= 1.0 {
+        high_threshold * max_magnitude
+    } else {
+        high_threshold
+    };
+    let low_thresh = if low_threshold <= 1.0 {
+        low_threshold * max_magnitude
+    } else {
+        low_threshold
+    };
+
+    // Start with strong edges (above high threshold)
+    for y in 1..height-1 {
+        for x in 1..width-1 {
+            if magnitude[[y, x]] >= high_thresh && !visited[[y, x]] {
+                // Strong edge - trace connected weak edges
+                trace_edge(magnitude, &mut edges, &mut visited, y, x, low_thresh);
+            }
+        }
+    }
+
+    edges
+}
+
+/// Trace connected edges from a strong edge pixel
+fn trace_edge(
+    magnitude: &Array2<f64>,
+    edges: &mut Array2<bool>,
+    visited: &mut Array2<bool>,
+    y: usize,
+    x: usize,
+    low_threshold: f64,
+) {
+    let (height, width) = magnitude.dim();
+
+    // Stack for depth-first search
+    let mut stack = vec![(y, x)];
+
+    while let Some((cy, cx)) = stack.pop() {
+        if visited[[cy, cx]] {
+            continue;
+        }
+
+        visited[[cy, cx]] = true;
+        edges[[cy, cx]] = true;
+
+        // Check 8-connected neighbors
+        for dy in -1..=1 {
+            for dx in -1..=1 {
+                if dy == 0 && dx == 0 {
+                    continue;
+                }
+
+                let ny = cy as i32 + dy;
+                let nx = cx as i32 + dx;
+
+                if ny > 0 && ny < (height - 1) as i32 &&
+                   nx > 0 && nx < (width - 1) as i32 {
+                    let ny = ny as usize;
+                    let nx = nx as usize;
+
+                    // Follow weak edges connected to strong edges
+                    if !visited[[ny, nx]] && magnitude[[ny, nx]] >= low_threshold {
+                        stack.push((ny, nx));
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

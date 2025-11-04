@@ -1,6 +1,6 @@
 use crate::config::{GridParams, SegmentationMethod};
 use crate::error::{Error, Result};
-use crate::image_processing::{compute_gradient, gaussian_blur, normalize_image, threshold, morphological_opening};
+use crate::image_processing::{canny_edge_detection, compute_gradient, gaussian_blur, normalize_image, threshold, morphological_opening};
 use crate::types::{ImageData, Spot};
 use ndarray::Array2;
 use std::f64::consts::PI;
@@ -161,18 +161,14 @@ fn segment_by_edge(
         roi
     };
 
-    // Apply simple gradient-based edge detection (MATLAB line 38)
-    // imageproc's Canny has bugs with small images, so use our own gradient method
-    let edge_threshold = params.edge_sensitivity[1];
+    // Phase 3: Use proper Canny edge detection matching MATLAB (line 38)
+    // MATLAB: J = edge(J, 'canny', params.segEdgeSensitivity);
+    let low_threshold = params.edge_sensitivity[0];
+    let high_threshold = params.edge_sensitivity[1];
+    let sigma = 1.0;  // MATLAB default for Canny
 
-    // Smooth with Gaussian
-    let smoothed = gaussian_blur(&roi, 1.0);
-
-    // Compute gradient magnitude
-    let gradient = compute_gradient(&smoothed);
-
-    // Threshold to get binary edge map
-    let edges = threshold(&gradient, edge_threshold);
+    // Apply Canny edge detection with hysteresis thresholding
+    let edges = canny_edge_detection(&roi, low_threshold, high_threshold, sigma);
 
     // Create full-sized edge image like MATLAB (line 44-45)
     // This avoids coordinate transformation issues
