@@ -250,11 +250,17 @@ fn segment_by_edge(
                 let dy = circle.y - current_midpoint.1;
                 let delta = (dx * dx + dy * dy).sqrt();
 
+                tracing::debug!(
+                    "Iteration {}: delta={:.2}, center=({:.1}, {:.1}), edge_pixels={}",
+                    iteration, delta, circle.x, circle.y, edge_pixels.len()
+                );
+
                 current_midpoint = (circle.x, circle.y);
                 final_circle = Some(circle);
 
                 // Converged? (MATLAB line 71)
                 if delta <= 2.0_f64.sqrt() {
+                    tracing::debug!("Converged at iteration {}", iteration);
                     break;
                 }
 
@@ -467,6 +473,8 @@ pub fn segment_spots(
     spots: &mut [Spot],
     params: &GridParams,
 ) -> Result<()> {
+    tracing::debug!("Segmenting {} spots using method: {:?}", spots.len(), params.segmentation_method);
+
     for spot in spots.iter_mut() {
         let circle_result = match params.segmentation_method {
             SegmentationMethod::Edge => segment_by_edge(image, spot, params),
@@ -485,6 +493,7 @@ pub fn segment_spots(
 
         match circle_result {
             Ok(Some(c)) => {
+                spot.is_found = true;  // Successfully segmented
                 spot.grid_x = c.x;
                 spot.grid_y = c.y;
                 spot.diameter = c.radius * 2.0;
@@ -497,10 +506,41 @@ pub fn segment_spots(
                 } else {
                     spot.is_bad = false;
                 }
+
+                // Check position offset (MATLAB: pg_seg_check_segmentation.m:18)
+                // Verify spot hasn't moved too far from initial position
+                let dx = spot.grid_x - spot.initial_x;
+                let dy = spot.grid_y - spot.initial_y;
+                let offset = ((dx * dx + dy * dy).sqrt()) / params.spot_pitch;
+
+                let max_offset = if spot.is_reference {
+                    params.max_position_offset_refs
+                } else {
+                    params.max_position_offset
+                };
+
+                if offset > max_offset {
+                    tracing::debug!(
+                        "Spot {} moved too far: offset={:.2} > max={:.2} (ref={})",
+                        spot.id, offset, max_offset, spot.is_reference
+                    );
+                    spot.is_bad = true;
+                }
             }
             Ok(None) | Err(_) => {
-                // Mark as bad if segmentation failed or returned None
-                spot.is_bad = true;
+                // Segmentation failed - not found
+                // Use default diameter (MATLAB: pg_seg_segment_by_edge.m:148-149)
+                const DEFAULT_RADIUS_FACTOR: f64 = 0.6;
+                spot.diameter = DEFAULT_RADIUS_FACTOR * params.spot_pitch;
+
+                spot.is_found = false;
+                spot.is_bad = false;  // Not bad, just not found
+                spot.is_empty = true; // Mark as empty instead
+
+                tracing::debug!(
+                    "Spot {} not found, using default diameter={:.1}px",
+                    spot.id, spot.diameter
+                );
             }
         }
 

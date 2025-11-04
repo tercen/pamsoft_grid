@@ -554,8 +554,11 @@ pub fn generate_grid_coordinates(
                 y_fixed: 0.0,
                 grid_x: abs_x,
                 grid_y: abs_y,
+                initial_x: abs_x,  // Store initial position for offset validation
+                initial_y: abs_y,  // Store initial position for offset validation
                 diameter: 0.0,
                 is_manual: false,
+                is_found: false,  // Will be set during segmentation
                 is_bad: false,
                 is_empty: false,
                 rotation,
@@ -617,8 +620,11 @@ pub fn generate_grid_coordinates(
                 y_fixed: 0.0,
                 grid_x: abs_x,
                 grid_y: abs_y,
+                initial_x: abs_x,  // Store initial position for offset validation
+                initial_y: abs_y,  // Store initial position for offset validation
                 diameter: 0.0,
                 is_manual: false,
+                is_found: false,  // Will be set during segmentation
                 is_bad: false,
                 is_empty: false,
                 rotation,
@@ -722,8 +728,8 @@ pub fn process_gridding(
             i, spot.row, spot.col, spot.grid_x, spot.grid_y);
     }
 
-    // TEMP: Skip refinement to test pure generated positions
-    // refine_grid_positions(grid_image, &mut spots, params)?;
+    // Refine grid positions based on actual spot locations
+    refine_grid_positions(grid_image, &mut spots, params)?;
 
     // DEBUG: Check positions after refinement
     for (i, spot) in spots.iter().enumerate().take(5) {

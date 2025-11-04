@@ -1,0 +1,36 @@
+{
+  "mode": "batch",
+  "numWorkers": 4,
+  "progressFile": "/tmp/phase1_progress.txt",
+  "outputFile": "/tmp/phase1_p92_results.csv",
+  "imageGroups": [
+    {
+      "groupId": "P92_phase1",
+      "sqcMinDiameter": 0.45,
+      "sqcMaxDiameter": 0.85,
+      "segEdgeSensitivity": [0, 0.01],
+      "qntSeriesMode": 0,
+      "qntShowPamGridViewer": 0,
+      "grdSpotPitch": 21.5,
+      "grdSpotSize": 0.66,
+      "grdRotation": [0],
+      "qntSaturationLimit": 4095,
+      "segMethod": "Edge",
+      "grdUseImage": "First",
+      "pgMode": "grid",
+      "dbgShowPresenter": 0,
+      "arraylayoutfile": "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/631402617_631402618_631402619 86312 Array Layout.txt",
+      "imageslist": [
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W1_F1_T10_P92_I433_A29.tif",
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W1_F1_T50_P92_I434_A29.tif",
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W2_F1_T10_P92_I436_A29.tif",
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W2_F1_T50_P92_I437_A29.tif",
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W3_F1_T10_P92_I439_A29.tif",
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W3_F1_T50_P92_I440_A29.tif",
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W4_F1_T10_P92_I442_A29.tif",
+        "tests/test_data/631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240/ImageResults/631402617_W4_F1_T50_P92_I443_A29.tif"
+      ]
+    }
+  ],
+  "dbgPrintOutput": "yes"
+}

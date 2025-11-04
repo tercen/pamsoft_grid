@@ -14,10 +14,13 @@ pub struct Spot {
     pub y_fixed: f64,
     pub grid_x: f64,
     pub grid_y: f64,
+    pub initial_x: f64,  // Initial position before segmentation (for offset validation)
+    pub initial_y: f64,  // Initial position before segmentation (for offset validation)
     pub diameter: f64,
     pub is_manual: bool,
-    pub is_bad: bool,
-    pub is_empty: bool,
+    pub is_found: bool,  // Successfully segmented (MATLAB: isFound)
+    pub is_bad: bool,    // Bad quality (bounds violation, offset too large)
+    pub is_empty: bool,  // Empty/weak signal
     pub rotation: f64,
 }
 
