@@ -156,6 +156,106 @@ pub fn threshold(data: &Array2<f64>, threshold: f64) -> Array2<bool> {
     data.mapv(|x| x > threshold)
 }
 
+/// Create a disk structuring element for morphological operations
+/// Returns a binary array where 1 indicates points within radius distance from center
+fn create_disk_structuring_element(radius: usize) -> Array2<bool> {
+    let size = 2 * radius + 1;
+    let mut disk = Array2::<bool>::default((size, size));
+    let center = radius as isize;
+
+    for i in 0..size {
+        for j in 0..size {
+            let di = i as isize - center;
+            let dj = j as isize - center;
+            let dist = ((di * di + dj * dj) as f64).sqrt();
+            disk[[i, j]] = dist <= radius as f64;
+        }
+    }
+    disk
+}
+
+/// Morphological erosion operation
+/// Replaces each pixel with the minimum value in its neighborhood defined by structuring element
+pub fn erode(image: &Array2<f64>, structuring_element: &Array2<bool>) -> Array2<f64> {
+    let (img_h, img_w) = image.dim();
+    let (se_h, se_w) = structuring_element.dim();
+    let se_h_half = se_h / 2;
+    let se_w_half = se_w / 2;
+
+    let mut result = Array2::zeros((img_h, img_w));
+
+    for i in 0..img_h {
+        for j in 0..img_w {
+            let mut min_val = f64::MAX;
+
+            // Apply structuring element
+            for si in 0..se_h {
+                for sj in 0..se_w {
+                    if structuring_element[[si, sj]] {
+                        let ii = i as isize + si as isize - se_h_half as isize;
+                        let jj = j as isize + sj as isize - se_w_half as isize;
+
+                        if ii >= 0 && ii < img_h as isize && jj >= 0 && jj < img_w as isize {
+                            let val = image[[ii as usize, jj as usize]];
+                            if val < min_val {
+                                min_val = val;
+                            }
+                        }
+                    }
+                }
+            }
+
+            result[[i, j]] = if min_val == f64::MAX { image[[i, j]] } else { min_val };
+        }
+    }
+    result
+}
+
+/// Morphological dilation operation
+/// Replaces each pixel with the maximum value in its neighborhood defined by structuring element
+pub fn dilate(image: &Array2<f64>, structuring_element: &Array2<bool>) -> Array2<f64> {
+    let (img_h, img_w) = image.dim();
+    let (se_h, se_w) = structuring_element.dim();
+    let se_h_half = se_h / 2;
+    let se_w_half = se_w / 2;
+
+    let mut result = Array2::zeros((img_h, img_w));
+
+    for i in 0..img_h {
+        for j in 0..img_w {
+            let mut max_val = f64::MIN;
+
+            // Apply structuring element
+            for si in 0..se_h {
+                for sj in 0..se_w {
+                    if structuring_element[[si, sj]] {
+                        let ii = i as isize + si as isize - se_h_half as isize;
+                        let jj = j as isize + sj as isize - se_w_half as isize;
+
+                        if ii >= 0 && ii < img_h as isize && jj >= 0 && jj < img_w as isize {
+                            let val = image[[ii as usize, jj as usize]];
+                            if val > max_val {
+                                max_val = val;
+                            }
+                        }
+                    }
+                }
+            }
+
+            result[[i, j]] = if max_val == f64::MIN { image[[i, j]] } else { max_val };
+        }
+    }
+    result
+}
+
+/// Morphological opening operation (erosion followed by dilation)
+/// Removes small bright features while preserving the overall shape
+pub fn morphological_opening(image: &Array2<f64>, radius: usize) -> Array2<f64> {
+    let se = create_disk_structuring_element(radius);
+    let eroded = erode(image, &se);
+    dilate(&eroded, &se)
+}
+
 /// Compute 2D cross-correlation using FFT (simplified version)
 pub fn cross_correlate(image: &Array2<f64>, template: &Array2<f64>) -> Array2<f64> {
     let (img_h, img_w) = image.dim();

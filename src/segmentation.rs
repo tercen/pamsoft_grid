@@ -1,6 +1,6 @@
 use crate::config::{GridParams, SegmentationMethod};
 use crate::error::{Error, Result};
-use crate::image_processing::{compute_gradient, gaussian_blur, normalize_image, threshold};
+use crate::image_processing::{compute_gradient, gaussian_blur, normalize_image, threshold, morphological_opening};
 use crate::types::{ImageData, Spot};
 use ndarray::Array2;
 use std::f64::consts::PI;
@@ -11,6 +11,88 @@ pub struct Circle {
     pub x: f64,
     pub y: f64,
     pub radius: f64,
+}
+
+/// Find connected components in a binary image and return the largest one
+/// Implements flood-fill algorithm matching MATLAB's bwconncomp
+fn find_largest_connected_component(
+    edge_map: &Array2<bool>,
+    x_start: usize,
+    x_end: usize,
+    y_start: usize,
+    y_end: usize,
+) -> Vec<(usize, usize)> {
+    if x_end <= x_start || y_end <= y_start {
+        return Vec::new();
+    }
+
+    let height = x_end - x_start;
+    let width = y_end - y_start;
+    let mut visited = Array2::<bool>::default((height, width));
+    let mut components: Vec<Vec<(usize, usize)>> = Vec::new();
+
+    // Flood fill to find all connected components
+    for local_x in 0..height {
+        for local_y in 0..width {
+            let global_x = x_start + local_x;
+            let global_y = y_start + local_y;
+
+            // Skip if already visited or not an edge pixel
+            if visited[[local_x, local_y]] || global_x >= edge_map.nrows() || global_y >= edge_map.ncols() {
+                continue;
+            }
+            if !edge_map[[global_x, global_y]] {
+                continue;
+            }
+
+            // Start a new component with flood fill
+            let mut component = Vec::new();
+            let mut stack = vec![(local_x, local_y, global_x, global_y)];
+
+            while let Some((lx, ly, gx, gy)) = stack.pop() {
+                if visited[[lx, ly]] {
+                    continue;
+                }
+                visited[[lx, ly]] = true;
+
+                if gx < edge_map.nrows() && gy < edge_map.ncols() && edge_map[[gx, gy]] {
+                    component.push((gx, gy));
+
+                    // Add 8-connected neighbors
+                    for dx in -1..=1 {
+                        for dy in -1..=1 {
+                            if dx == 0 && dy == 0 {
+                                continue;
+                            }
+
+                            let nx = lx as isize + dx;
+                            let ny = ly as isize + dy;
+                            let ngx = gx as isize + dx;
+                            let ngy = gy as isize + dy;
+
+                            if nx >= 0 && nx < height as isize && ny >= 0 && ny < width as isize {
+                                let nx = nx as usize;
+                                let ny = ny as usize;
+                                let ngx = ngx as usize;
+                                let ngy = ngy as usize;
+
+                                if !visited[[nx, ny]] && ngx < edge_map.nrows() && ngy < edge_map.ncols() {
+                                    stack.push((nx, ny, ngx, ngy));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !component.is_empty() {
+                components.push(component);
+            }
+        }
+    }
+
+    // Return the largest component
+    components.into_iter().max_by_key(|c| c.len()).unwrap_or_default()
 }
 
 /// Segment spot using edge-based method matching MATLAB's pg_seg_segment_by_edge
@@ -65,12 +147,18 @@ fn segment_by_edge(
         }
     }
 
-    // Apply morphological filtering if needed (MATLAB lines 29-33)
-    if params.small_disk * spot_pitch >= 1.0 {
-        let filter_disk_radius = (params.small_disk * spot_pitch / 2.0).round() as u32;
-        // Note: morphological filtering would go here - simplified for now
-        // This matches: se = strel('disk', round(segNFilterDisk/2))
-    }
+    // Apply morphological opening (erosion then dilation) if needed (MATLAB lines 29-33)
+    // This removes small noise while preserving spot boundaries
+    let roi = if params.small_disk * spot_pitch >= 1.0 {
+        let filter_disk_radius = (params.small_disk * spot_pitch / 2.0).round() as usize;
+        if filter_disk_radius > 0 {
+            morphological_opening(&roi, filter_disk_radius)
+        } else {
+            roi
+        }
+    } else {
+        roi
+    };
 
     // Apply simple gradient-based edge detection (MATLAB line 38)
     // imageproc's Canny has bugs with small images, so use our own gradient method
@@ -85,11 +173,12 @@ fn segment_by_edge(
     // Threshold to get binary edge map
     let edges = threshold(&gradient, edge_threshold);
 
-    // Convert to bool array
-    let mut edge_map = Array2::<bool>::default((roi_height, roi_width));
+    // Create full-sized edge image like MATLAB (line 44-45)
+    // This avoids coordinate transformation issues
+    let mut edge_map = Array2::<bool>::default((image.height, image.width));
     for y in 0..roi_height {
         for x in 0..roi_width {
-            edge_map[[y, x]] = edges[[y, x]];
+            edge_map[[y_lu + y, x_lu + x]] = edges[[y, x]];
         }
     }
 
@@ -128,24 +217,24 @@ fn segment_by_edge(
         }
 
         // Extract local edge region
-        let local_width = (x_init.1 - x_init.0) as usize;
-        let local_height = (y_init.1 - y_init.0) as usize;
+        let _local_width = (x_init.1 - x_init.0) as usize;
+        let _local_height = (y_init.1 - y_init.0) as usize;
 
-        // Find connected components in edge map (MATLAB lines 93-96)
-        let mut edge_pixels = Vec::new();
+        // Find connected components in edge map (MATLAB lines 88, 93-96)
+        // Extract Ilocal from full-sized edge image using absolute coordinates
+        let component = find_largest_connected_component(
+            &edge_map,
+            x_init.0 as usize,
+            x_init.1 as usize,
+            y_init.0 as usize,
+            y_init.1 as usize,
+        );
 
-        for y in y_init.0..y_init.1 {
-            for x in x_init.0..x_init.1 {
-                if y >= y_lu as isize && y < y_rl as isize &&
-                   x >= x_lu as isize && x < x_rl as isize {
-                    let roi_y = (y - y_lu as isize) as usize;
-                    let roi_x = (x - x_lu as isize) as usize;
-                    if roi_y < edge_map.nrows() && roi_x < edge_map.ncols() && edge_map[[roi_y, roi_x]] {
-                        edge_pixels.push((x as f64, y as f64));
-                    }
-                }
-            }
-        }
+        // Component pixels are already in image coordinates
+        let edge_pixels: Vec<(f64, f64)> = component
+            .into_iter()
+            .map(|(x, y)| (x as f64, y as f64))
+            .collect();
 
         // Check minimum edge pixels (MATLAB line 102)
         if edge_pixels.len() >= params.min_edge_pixels {
