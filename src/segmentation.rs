@@ -1,6 +1,10 @@
 use crate::config::{GridParams, SegmentationMethod};
 use crate::error::{Error, Result};
-use crate::image_processing::{canny_edge_detection, compute_gradient, gaussian_blur, normalize_image, threshold, morphological_opening};
+use crate::image_processing::{
+    canny_edge_detection_auto, compute_gradient_auto, gaussian_blur_auto,
+    normalize_image, threshold, morphological_opening_auto,
+    find_largest_connected_component_auto
+};
 use crate::types::{ImageData, Spot};
 use ndarray::Array2;
 use std::f64::consts::PI;
@@ -16,7 +20,7 @@ pub struct Circle {
 /// Find connected components in a binary image and return the largest one
 /// Implements flood-fill algorithm matching MATLAB's bwconncomp
 #[cfg_attr(test, allow(dead_code))]
-pub(crate) fn find_largest_connected_component(
+pub fn find_largest_connected_component(
     edge_map: &Array2<bool>,
     x_start: usize,
     x_end: usize,
@@ -155,7 +159,7 @@ fn segment_by_edge(
     let roi = if params.small_disk * spot_pitch >= 1.0 {
         let filter_disk_radius = (params.small_disk * spot_pitch / 2.0).round() as usize;
         if filter_disk_radius > 0 {
-            morphological_opening(&roi, filter_disk_radius)
+            morphological_opening_auto(&roi, filter_disk_radius)?
         } else {
             roi
         }
@@ -169,8 +173,8 @@ fn segment_by_edge(
     let high_threshold = params.edge_sensitivity[1];
     let sigma = 1.0;  // MATLAB default for Canny
 
-    // Apply Canny edge detection with hysteresis thresholding
-    let edges = canny_edge_detection(&roi, low_threshold, high_threshold, sigma);
+    // Apply Canny edge detection with hysteresis thresholding (OpenCV-accelerated)
+    let edges = canny_edge_detection_auto(&roi, low_threshold, high_threshold, sigma)?;
 
     // Create full-sized edge image like MATLAB (line 44-45)
     // This avoids coordinate transformation issues
@@ -221,13 +225,13 @@ fn segment_by_edge(
 
         // Find connected components in edge map (MATLAB lines 88, 93-96)
         // Extract Ilocal from full-sized edge image using absolute coordinates
-        let component = find_largest_connected_component(
+        let component = find_largest_connected_component_auto(
             &edge_map,
             x_init.0 as usize,
             x_init.1 as usize,
             y_init.0 as usize,
             y_init.1 as usize,
-        );
+        )?;
 
         // Component pixels are already in image coordinates
         let edge_pixels: Vec<(f64, f64)> = component
@@ -313,11 +317,11 @@ fn segment_by_edge_old(
         }
     }
 
-    // Apply Gaussian smoothing
-    let smoothed = gaussian_blur(&region, 1.0);
+    // Apply Gaussian smoothing (OpenCV-accelerated)
+    let smoothed = gaussian_blur_auto(&region, 1.0)?;
 
-    // Compute gradient
-    let gradient = compute_gradient(&smoothed);
+    // Compute gradient (OpenCV-accelerated)
+    let gradient = compute_gradient_auto(&smoothed)?;
 
     // Threshold edges
     let edge_threshold = params.edge_sensitivity[1];
@@ -374,9 +378,9 @@ fn segment_by_hough(
         }
     }
 
-    // Compute gradient for edge detection
-    let smoothed = gaussian_blur(&region, 1.0);
-    let gradient = compute_gradient(&smoothed);
+    // Compute gradient for edge detection (OpenCV-accelerated)
+    let smoothed = gaussian_blur_auto(&region, 1.0)?;
+    let gradient = compute_gradient_auto(&smoothed)?;
 
     // Hough circle detection
     let min_radius = (params.min_diameter * params.spot_pitch / 2.0) as usize;

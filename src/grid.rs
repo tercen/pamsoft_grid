@@ -5,8 +5,10 @@ use crate::types::{ImageData, Spot};
 use ndarray::Array2;
 use rustfft::{FftPlanner, num_complex::Complex};
 use std::f64::consts::PI;
+
+#[cfg(feature = "opencv")]
 use opencv::{
-    core::{self, Mat, MatTraitConst, CV_32F},
+    core::{self, Mat, CV_32F},
     imgproc,
     prelude::*,
 };
@@ -298,11 +300,12 @@ fn template_correlation(
 
 /// Refine center position using intensity-based registration (matches MATLAB's imregister2)
 /// This performs gradient-descent optimization to align the template with the image
+#[cfg(feature = "opencv")]
 fn refine_center_with_intensity(
     image: &Array2<f64>,
     template: &Array2<f64>,
-    initial_center: (f64, f64),
-    max_iterations: usize,
+    _initial_center: (f64, f64),
+    _max_iterations: usize,
 ) -> Result<(f64, f64)> {
     // Convert ndarray to OpenCV Mat
     let (img_h, img_w) = image.dim();
@@ -433,6 +436,7 @@ pub fn find_grid_center(
     }
 
     // If single rotation mode, refine with intensity-based registration (like MATLAB's imregister2)
+    #[cfg(feature = "opencv")]
     if use_intensity_refinement {
         if let Some(template) = best_template {
             tracing::info!(
@@ -453,6 +457,15 @@ pub fn find_grid_center(
             );
             best_center = refined_center;
         }
+    }
+
+    // Without OpenCV, log warning if single rotation mode is used
+    #[cfg(not(feature = "opencv"))]
+    if use_intensity_refinement {
+        tracing::warn!(
+            "Single rotation mode requires OpenCV for intensity-based refinement. \
+             Using FFT-only detection. Enable 'opencv' feature for better accuracy."
+        );
     }
 
     // Apply MATLAB's -2 adjustment (from pg_grid_find.m lines 124-125: cx = cx-2; cy = cy-2)
