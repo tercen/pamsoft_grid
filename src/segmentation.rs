@@ -13,8 +13,342 @@ pub struct Circle {
     pub radius: f64,
 }
 
-/// Segment spot using edge-based method
+/// Segment spot using edge-based method matching MATLAB's pg_seg_segment_by_edge
 fn segment_by_edge(
+    image: &ImageData,
+    spot: &Spot,
+    params: &GridParams,
+) -> Result<Option<Circle>> {
+    use imageproc::morphology::{erode, dilate};
+    use imageproc::distance_transform::Norm;
+
+    let normalized = normalize_image(&image.data);
+    let spot_pitch = params.spot_pitch;
+
+    // Default radius for fallback
+    let default_radius = 0.6 * spot_pitch / 2.0;
+
+    // Get initial position
+    let cx = spot.grid_x;
+    let cy = spot.grid_y;
+
+    // Define ROI bounds (2× spot pitch window, matching MATLAB lines 8-17)
+    let x_lu = (cx - spot_pitch).max(0.0) as usize;
+    let y_lu = (cy - spot_pitch).max(0.0) as usize;
+    let x_rl = (cx + spot_pitch).min((image.width - 1) as f64) as usize;
+    let y_rl = (cy + spot_pitch).min((image.height - 1) as f64) as usize;
+
+    if x_rl <= x_lu || y_rl <= y_lu {
+        return Ok(None);
+    }
+
+    // Extract and filter ROI (MATLAB lines 26-33)
+    let roi_width = x_rl - x_lu + 1;
+    let roi_height = y_rl - y_lu + 1;
+    let mut roi = Array2::zeros((roi_height, roi_width));
+
+    for y in 0..roi_height {
+        for x in 0..roi_width {
+            roi[[y, x]] = normalized[[y_lu + y, x_lu + x]];
+        }
+    }
+
+    // Apply morphological filtering if needed (MATLAB lines 29-33)
+    if params.small_disk * spot_pitch >= 1.0 {
+        let filter_disk_radius = (params.small_disk * spot_pitch / 2.0).round() as u32;
+        // Note: morphological filtering would go here - simplified for now
+        // This matches: se = strel('disk', round(segNFilterDisk/2))
+    }
+
+    // Apply Canny edge detection (MATLAB line 38)
+    let lower_threshold = params.edge_sensitivity[0] as f32;
+    let upper_threshold = params.edge_sensitivity[1] as f32;
+
+    // Convert to imageproc format
+    let array_view = roi.view();
+    let mut img_u8 = image::GrayImage::new(roi_width as u32, roi_height as u32);
+    for y in 0..roi_height {
+        for x in 0..roi_width {
+            let val = (array_view[[y, x]] * 255.0).min(255.0).max(0.0) as u8;
+            img_u8.put_pixel(x as u32, y as u32, image::Luma([val]));
+        }
+    }
+
+    let edges = imageproc::edges::canny(&img_u8, lower_threshold, upper_threshold);
+
+    // Convert edges back to bool array
+    let mut edge_map = Array2::<bool>::default((roi_height, roi_width));
+    for y in 0..roi_height {
+        for x in 0..roi_width {
+            edge_map[[y, x]] = edges.get_pixel(x as u32, y as u32)[0] > 0;
+        }
+    }
+
+    // Compute parameters for iteration (MATLAB lines 47-49)
+    let pix_area_size = params.area_size * spot_pitch;
+    let pix_off = ((spot_pitch - 0.5 * pix_area_size).max(0.0)).round() as isize;
+    let spot_pitch_i = spot_pitch.round() as isize;
+
+    // Iterative refinement loop (MATLAB lines 60-140)
+    let mut current_midpoint = (cx, cy);
+    let mut x_local = (x_lu as isize, x_lu as isize + 2 * spot_pitch_i);
+    let mut y_local = (y_lu as isize, y_lu as isize + 2 * spot_pitch_i);
+
+    let max_iterations = 3;
+    let mut spot_found = false;
+    let mut final_circle = None;
+
+    for iteration in 0..max_iterations {
+        // Clamp local coordinates to image bounds
+        x_local.0 = x_local.0.max(0).min(image.width as isize - 1);
+        x_local.1 = x_local.1.max(x_local.0 + 1).min(image.width as isize);
+        y_local.0 = y_local.0.max(0).min(image.height as isize - 1);
+        y_local.1 = y_local.1.max(y_local.0 + 1).min(image.height as isize);
+
+        // Define search window with offset (MATLAB lines 85-86)
+        let x_init = (x_local.0 + pix_off, x_local.1 - pix_off);
+        let y_init = (y_local.0 + pix_off, y_local.1 - pix_off);
+
+        if x_init.1 <= x_init.0 || y_init.1 <= y_init.0 {
+            break;
+        }
+
+        // Extract local edge region
+        let local_width = (x_init.1 - x_init.0) as usize;
+        let local_height = (y_init.1 - y_init.0) as usize;
+
+        // Find connected components in edge map (MATLAB lines 93-96)
+        let mut edge_pixels = Vec::new();
+
+        for y in y_init.0..y_init.1 {
+            for x in x_init.0..x_init.1 {
+                if y >= y_lu as isize && y < y_rl as isize &&
+                   x >= x_lu as isize && x < x_rl as isize {
+                    let roi_y = (y - y_lu as isize) as usize;
+                    let roi_x = (x - x_lu as isize) as usize;
+                    if roi_y < edge_map.nrows() && roi_x < edge_map.ncols() && edge_map[[roi_y, roi_x]] {
+                        edge_pixels.push((x as f64, y as f64));
+                    }
+                }
+            }
+        }
+
+        // Check minimum edge pixels (MATLAB line 102)
+        if edge_pixels.len() >= params.min_edge_pixels {
+            spot_found = true;
+
+            // Fit circle to edge pixels (MATLAB line 120)
+            if let Some(circle) = fit_circle_robust(&edge_pixels) {
+                // Calculate movement (MATLAB lines 125-127)
+                let dx = circle.x - current_midpoint.0;
+                let dy = circle.y - current_midpoint.1;
+                let delta = (dx * dx + dy * dy).sqrt();
+
+                current_midpoint = (circle.x, circle.y);
+                final_circle = Some(circle);
+
+                // Converged? (MATLAB line 71)
+                if delta <= 2.0_f64.sqrt() {
+                    break;
+                }
+
+                // Shift window for next iteration (MATLAB lines 131-139)
+                x_local.0 = (x_local.0 as f64 + dx).round() as isize;
+                x_local.1 = (x_local.1 as f64 + dx).round() as isize;
+                y_local.0 = (y_local.0 as f64 + dy).round() as isize;
+                y_local.1 = (y_local.1 as f64 + dy).round() as isize;
+            } else {
+                spot_found = false;
+                break;
+            }
+        } else {
+            spot_found = false;
+            break;
+        }
+    }
+
+    // Return result (MATLAB lines 143-152)
+    if spot_found {
+        Ok(final_circle)
+    } else {
+        // Use default radius for empty spots
+        Ok(Some(Circle {
+            x: cx,
+            y: cy,
+            radius: default_radius,
+        }))
+    }
+}
+
+/// Old placeholder gradient-based method (deprecated)
+fn segment_by_edge_old(
+    image: &ImageData,
+    spot: &Spot,
+    params: &GridParams,
+) -> Result<Option<Circle>> {
+    use imageproc::morphology::{erode, dilate};
+    use imageproc::distance_transform::Norm;
+
+    let normalized = normalize_image(&image.data);
+    let spot_pitch = params.spot_pitch;
+
+    // Default radius for fallback
+    let default_radius = 0.6 * spot_pitch / 2.0;
+
+    // Get initial position
+    let cx = spot.grid_x;
+    let cy = spot.grid_y;
+
+    // Define ROI bounds (2× spot pitch window, matching MATLAB lines 8-17)
+    let x_lu = (cx - spot_pitch).max(0.0) as usize;
+    let y_lu = (cy - spot_pitch).max(0.0) as usize;
+    let x_rl = (cx + spot_pitch).min((image.width - 1) as f64) as usize;
+    let y_rl = (cy + spot_pitch).min((image.height - 1) as f64) as usize;
+
+    if x_rl <= x_lu || y_rl <= y_lu {
+        return Ok(None);
+    }
+
+    // Extract and filter ROI (MATLAB lines 26-33)
+    let roi_width = x_rl - x_lu + 1;
+    let roi_height = y_rl - y_lu + 1;
+    let mut roi = Array2::zeros((roi_height, roi_width));
+
+    for y in 0..roi_height {
+        for x in 0..roi_width {
+            roi[[y, x]] = normalized[[y_lu + y, x_lu + x]];
+        }
+    }
+
+    // Apply morphological filtering if needed (MATLAB lines 29-33)
+    if params.small_disk * spot_pitch >= 1.0 {
+        let filter_disk_radius = (params.small_disk * spot_pitch / 2.0).round() as u32;
+        // Note: morphological filtering would go here - simplified for now
+        // This matches: se = strel('disk', round(segNFilterDisk/2))
+    }
+
+    // Apply Canny edge detection (MATLAB line 38)
+    let lower_threshold = params.edge_sensitivity[0] as f32;
+    let upper_threshold = params.edge_sensitivity[1] as f32;
+
+    // Convert to imageproc format
+    let array_view = roi.view();
+    let mut img_u8 = image::GrayImage::new(roi_width as u32, roi_height as u32);
+    for y in 0..roi_height {
+        for x in 0..roi_width {
+            let val = (array_view[[y, x]] * 255.0).min(255.0).max(0.0) as u8;
+            img_u8.put_pixel(x as u32, y as u32, image::Luma([val]));
+        }
+    }
+
+    let edges = imageproc::edges::canny(&img_u8, lower_threshold, upper_threshold);
+
+    // Convert edges back to bool array
+    let mut edge_map = Array2::<bool>::default((roi_height, roi_width));
+    for y in 0..roi_height {
+        for x in 0..roi_width {
+            edge_map[[y, x]] = edges.get_pixel(x as u32, y as u32)[0] > 0;
+        }
+    }
+
+    // Compute parameters for iteration (MATLAB lines 47-49)
+    let pix_area_size = params.area_size * spot_pitch;
+    let pix_off = ((spot_pitch - 0.5 * pix_area_size).max(0.0)).round() as isize;
+    let spot_pitch_i = spot_pitch.round() as isize;
+
+    // Iterative refinement loop (MATLAB lines 60-140)
+    let mut current_midpoint = (cx, cy);
+    let mut x_local = (x_lu as isize, x_lu as isize + 2 * spot_pitch_i);
+    let mut y_local = (y_lu as isize, y_lu as isize + 2 * spot_pitch_i);
+
+    let max_iterations = 3;
+    let mut spot_found = false;
+    let mut final_circle = None;
+
+    for iteration in 0..max_iterations {
+        // Clamp local coordinates to image bounds
+        x_local.0 = x_local.0.max(0).min(image.width as isize - 1);
+        x_local.1 = x_local.1.max(x_local.0 + 1).min(image.width as isize);
+        y_local.0 = y_local.0.max(0).min(image.height as isize - 1);
+        y_local.1 = y_local.1.max(y_local.0 + 1).min(image.height as isize);
+
+        // Define search window with offset (MATLAB lines 85-86)
+        let x_init = (x_local.0 + pix_off, x_local.1 - pix_off);
+        let y_init = (y_local.0 + pix_off, y_local.1 - pix_off);
+
+        if x_init.1 <= x_init.0 || y_init.1 <= y_init.0 {
+            break;
+        }
+
+        // Extract local edge region
+        let local_width = (x_init.1 - x_init.0) as usize;
+        let local_height = (y_init.1 - y_init.0) as usize;
+
+        // Find connected components in edge map (MATLAB lines 93-96)
+        let mut edge_pixels = Vec::new();
+
+        for y in y_init.0..y_init.1 {
+            for x in x_init.0..x_init.1 {
+                if y >= y_lu as isize && y < y_rl as isize &&
+                   x >= x_lu as isize && x < x_rl as isize {
+                    let roi_y = (y - y_lu as isize) as usize;
+                    let roi_x = (x - x_lu as isize) as usize;
+                    if roi_y < edge_map.nrows() && roi_x < edge_map.ncols() && edge_map[[roi_y, roi_x]] {
+                        edge_pixels.push((x as f64, y as f64));
+                    }
+                }
+            }
+        }
+
+        // Check minimum edge pixels (MATLAB line 102)
+        if edge_pixels.len() >= params.min_edge_pixels {
+            spot_found = true;
+
+            // Fit circle to edge pixels (MATLAB line 120)
+            if let Some(circle) = fit_circle_robust(&edge_pixels) {
+                // Calculate movement (MATLAB lines 125-127)
+                let dx = circle.x - current_midpoint.0;
+                let dy = circle.y - current_midpoint.1;
+                let delta = (dx * dx + dy * dy).sqrt();
+
+                current_midpoint = (circle.x, circle.y);
+                final_circle = Some(circle);
+
+                // Converged? (MATLAB line 71)
+                if delta <= 2.0_f64.sqrt() {
+                    break;
+                }
+
+                // Shift window for next iteration (MATLAB lines 131-139)
+                x_local.0 = (x_local.0 as f64 + dx).round() as isize;
+                x_local.1 = (x_local.1 as f64 + dx).round() as isize;
+                y_local.0 = (y_local.0 as f64 + dy).round() as isize;
+                y_local.1 = (y_local.1 as f64 + dy).round() as isize;
+            } else {
+                spot_found = false;
+                break;
+            }
+        } else {
+            spot_found = false;
+            break;
+        }
+    }
+
+    // Return result (MATLAB lines 143-152)
+    if spot_found {
+        Ok(final_circle)
+    } else {
+        // Use default radius for empty spots
+        Ok(Some(Circle {
+            x: cx,
+            y: cy,
+            radius: default_radius,
+        }))
+    }
+}
+
+/// Old placeholder gradient-based method (deprecated)
+fn segment_by_edge_old(
     image: &ImageData,
     spot: &Spot,
     params: &GridParams,
@@ -269,7 +603,15 @@ pub fn segment_spots(
                 spot.grid_x = c.x;
                 spot.grid_y = c.y;
                 spot.diameter = c.radius * 2.0;
-                spot.is_bad = false;
+
+                // Check diameter bounds (MATLAB: sqcMinDiameter, sqcMaxDiameter)
+                // Diameter is relative to spot_pitch
+                let relative_diameter = spot.diameter / params.spot_pitch;
+                if relative_diameter < params.min_diameter || relative_diameter > params.max_diameter {
+                    spot.is_bad = true;
+                } else {
+                    spot.is_bad = false;
+                }
             }
             Ok(None) | Err(_) => {
                 // Mark as bad if segmentation failed or returned None
@@ -324,6 +666,200 @@ fn check_if_empty(image: &ImageData, spot: &Spot, params: &GridParams) -> bool {
 
     // Spot is empty if mean intensity is below threshold
     mean_intensity < 0.1
+}
+
+/// Fit circle to points using weighted least squares
+/// Based on MATLAB's pg_seg_circfit.m
+/// Solves: x^2 + y^2 + a1*x + a2*y + a3 = 0
+fn fit_circle_weighted(points: &[(f64, f64)], weights: &[f64]) -> Option<Circle> {
+    if points.len() < 3 {
+        return None;
+    }
+
+    let n = points.len();
+
+    // Build weighted least squares system: A*a = b
+    // A = [x, y, 1], b = -(x^2 + y^2)
+    let mut atwa = [[0.0; 3]; 3];  // A^T * W * A
+    let mut atwb = [0.0; 3];        // A^T * W * b
+
+    for i in 0..n {
+        let (x, y) = points[i];
+        let w = weights[i];
+        let b = -(x * x + y * y);
+
+        // A^T * W * A
+        atwa[0][0] += w * x * x;
+        atwa[0][1] += w * x * y;
+        atwa[0][2] += w * x;
+        atwa[1][1] += w * y * y;
+        atwa[1][2] += w * y;
+        atwa[2][2] += w;
+
+        // A^T * W * b
+        atwb[0] += w * x * b;
+        atwb[1] += w * y * b;
+        atwb[2] += w * b;
+    }
+
+    // Symmetric matrix
+    atwa[1][0] = atwa[0][1];
+    atwa[2][0] = atwa[0][2];
+    atwa[2][1] = atwa[1][2];
+
+    // Solve 3x3 system using Gaussian elimination with partial pivoting
+    let mut a = atwa;
+    let mut b = atwb;
+
+    // Forward elimination
+    for k in 0..2 {
+        // Find pivot
+        let mut max_row = k;
+        for i in (k+1)..3 {
+            if a[i][k].abs() > a[max_row][k].abs() {
+                max_row = i;
+            }
+        }
+
+        // Swap rows
+        if max_row != k {
+            a.swap(k, max_row);
+            b.swap(k, max_row);
+        }
+
+        if a[k][k].abs() < 1e-10 {
+            return None;  // Singular matrix
+        }
+
+        // Eliminate
+        for i in (k+1)..3 {
+            let factor = a[i][k] / a[k][k];
+            for j in k..3 {
+                a[i][j] -= factor * a[k][j];
+            }
+            b[i] -= factor * b[k];
+        }
+    }
+
+    // Back substitution
+    let mut coef = [0.0; 3];
+    for i in (0..3).rev() {
+        let mut sum = b[i];
+        for j in (i+1)..3 {
+            sum -= a[i][j] * coef[j];
+        }
+        coef[i] = sum / a[i][i];
+    }
+
+    // Extract circle parameters
+    let xc = -0.5 * coef[0];
+    let yc = -0.5 * coef[1];
+    let r_sq = (coef[0] * coef[0] + coef[1] * coef[1]) / 4.0 - coef[2];
+
+    if r_sq <= 0.0 {
+        return None;
+    }
+
+    Some(Circle {
+        x: xc,
+        y: yc,
+        radius: r_sq.sqrt(),
+    })
+}
+
+/// Calculate Tukey bisquare weights for robust fitting
+/// Based on MATLAB's pg_seg_calc_tukey_weights.m
+fn calculate_tukey_weights(residuals: &[f64]) -> Vec<f64> {
+    let k = 4.685;  // Tukey constant
+
+    // Calculate MAD (Median Absolute Deviation)
+    let mut abs_res: Vec<f64> = residuals.iter().map(|r| r.abs()).collect();
+    abs_res.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let mad = if abs_res.len() % 2 == 0 {
+        (abs_res[abs_res.len() / 2 - 1] + abs_res[abs_res.len() / 2]) / 2.0
+    } else {
+        abs_res[abs_res.len() / 2]
+    };
+
+    // Handle zero MAD
+    let mad = if mad < 1e-10 {
+        residuals.iter().map(|r| r.abs()).sum::<f64>() / residuals.len() as f64 * 0.001
+    } else {
+        mad
+    };
+
+    // Robust variance estimate
+    let rob_var = mad / 0.6745;
+
+    // Calculate Tukey bisquare weights
+    residuals.iter().map(|&r| {
+        let w_res = r / (k * rob_var);
+        if w_res.abs() < 1.0 {
+            let temp = 1.0 - w_res * w_res;
+            temp * temp
+        } else {
+            0.0
+        }
+    }).collect()
+}
+
+/// Fit circle using robust iterative reweighted least squares
+/// Based on MATLAB's pg_seg_rob_circ_fit.m
+fn fit_circle_robust(points: &[(f64, f64)]) -> Option<Circle> {
+    if points.len() < 3 {
+        return None;
+    }
+
+    let max_iter = 10;
+    let eps = 0.001;
+
+    // Initial fit with unit weights
+    let mut weights = vec![1.0; points.len()];
+    let mut circle = fit_circle_weighted(points, &weights)?;
+
+    let mut chi_sqr = calculate_chi_square(points, &circle, &weights);
+
+    // Iterative refinement with robust weighting
+    for _ in 0..max_iter {
+        let old_chi_sqr = chi_sqr;
+
+        // Calculate residuals
+        let residuals: Vec<f64> = points.iter().map(|(x, y)| {
+            let dx = x - circle.x;
+            let dy = y - circle.y;
+            let dist = (dx * dx + dy * dy).sqrt();
+            let res = dist - circle.radius;
+            res * res  // Squared residual
+        }).collect();
+
+        // Calculate Tukey weights
+        weights = calculate_tukey_weights(&residuals);
+
+        // Refit with new weights
+        circle = fit_circle_weighted(points, &weights)?;
+        chi_sqr = calculate_chi_square(points, &circle, &weights);
+
+        // Check convergence
+        if (chi_sqr - old_chi_sqr).abs() / chi_sqr <= eps {
+            break;
+        }
+    }
+
+    Some(circle)
+}
+
+/// Calculate chi-square goodness of fit
+fn calculate_chi_square(points: &[(f64, f64)], circle: &Circle, weights: &[f64]) -> f64 {
+    let mut chi_sqr = 0.0;
+    for (i, (x, y)) in points.iter().enumerate() {
+        let dx = x - circle.x;
+        let dy = y - circle.y;
+        let dist = (dx * dx + dy * dy).sqrt();
+        let res = dist - circle.radius;
+        chi_sqr += weights[i] * res * res;
+    }
+    chi_sqr / (points.len() as f64 - 3.0).max(1.0)
 }
 
 #[cfg(test)]
