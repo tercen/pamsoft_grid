@@ -58,6 +58,8 @@ pub fn process_single_group(config: &GroupConfig) -> Result<Vec<SpotResult>> {
         } else {
             Some(config.array_layout_file.clone())
         },
+        // Use MATLAB defaults for new parameters
+        ..Default::default()
     };
 
     params.validate()?;
