@@ -19,9 +19,6 @@ fn segment_by_edge(
     spot: &Spot,
     params: &GridParams,
 ) -> Result<Option<Circle>> {
-    use imageproc::morphology::{erode, dilate};
-    use imageproc::distance_transform::Norm;
-
     let normalized = normalize_image(&image.data);
     let spot_pitch = params.spot_pitch;
 
@@ -38,6 +35,9 @@ fn segment_by_edge(
     let x_rl = (cx + spot_pitch).min((image.width - 1) as f64) as usize;
     let y_rl = (cy + spot_pitch).min((image.height - 1) as f64) as usize;
 
+    eprintln!("ROI: cx={}, cy={}, image {}x{}, x_lu={}, x_rl={}, y_lu={}, y_rl={}",
+              cx, cy, image.width, image.height, x_lu, x_rl, y_lu, y_rl);
+
     if x_rl <= x_lu || y_rl <= y_lu {
         return Ok(None);
     }
@@ -45,173 +45,18 @@ fn segment_by_edge(
     // Extract and filter ROI (MATLAB lines 26-33)
     let roi_width = x_rl - x_lu + 1;
     let roi_height = y_rl - y_lu + 1;
-    let mut roi = Array2::zeros((roi_height, roi_width));
 
-    for y in 0..roi_height {
-        for x in 0..roi_width {
-            roi[[y, x]] = normalized[[y_lu + y, x_lu + x]];
-        }
-    }
-
-    // Apply morphological filtering if needed (MATLAB lines 29-33)
-    if params.small_disk * spot_pitch >= 1.0 {
-        let filter_disk_radius = (params.small_disk * spot_pitch / 2.0).round() as u32;
-        // Note: morphological filtering would go here - simplified for now
-        // This matches: se = strel('disk', round(segNFilterDisk/2))
-    }
-
-    // Apply Canny edge detection (MATLAB line 38)
-    let lower_threshold = params.edge_sensitivity[0] as f32;
-    let upper_threshold = params.edge_sensitivity[1] as f32;
-
-    // Convert to imageproc format
-    let array_view = roi.view();
-    let mut img_u8 = image::GrayImage::new(roi_width as u32, roi_height as u32);
-    for y in 0..roi_height {
-        for x in 0..roi_width {
-            let val = (array_view[[y, x]] * 255.0).min(255.0).max(0.0) as u8;
-            img_u8.put_pixel(x as u32, y as u32, image::Luma([val]));
-        }
-    }
-
-    let edges = imageproc::edges::canny(&img_u8, lower_threshold, upper_threshold);
-
-    // Convert edges back to bool array
-    let mut edge_map = Array2::<bool>::default((roi_height, roi_width));
-    for y in 0..roi_height {
-        for x in 0..roi_width {
-            edge_map[[y, x]] = edges.get_pixel(x as u32, y as u32)[0] > 0;
-        }
-    }
-
-    // Compute parameters for iteration (MATLAB lines 47-49)
-    let pix_area_size = params.area_size * spot_pitch;
-    let pix_off = ((spot_pitch - 0.5 * pix_area_size).max(0.0)).round() as isize;
-    let spot_pitch_i = spot_pitch.round() as isize;
-
-    // Iterative refinement loop (MATLAB lines 60-140)
-    let mut current_midpoint = (cx, cy);
-    let mut x_local = (x_lu as isize, x_lu as isize + 2 * spot_pitch_i);
-    let mut y_local = (y_lu as isize, y_lu as isize + 2 * spot_pitch_i);
-
-    let max_iterations = 3;
-    let mut spot_found = false;
-    let mut final_circle = None;
-
-    for iteration in 0..max_iterations {
-        // Clamp local coordinates to image bounds
-        x_local.0 = x_local.0.max(0).min(image.width as isize - 1);
-        x_local.1 = x_local.1.max(x_local.0 + 1).min(image.width as isize);
-        y_local.0 = y_local.0.max(0).min(image.height as isize - 1);
-        y_local.1 = y_local.1.max(y_local.0 + 1).min(image.height as isize);
-
-        // Define search window with offset (MATLAB lines 85-86)
-        let x_init = (x_local.0 + pix_off, x_local.1 - pix_off);
-        let y_init = (y_local.0 + pix_off, y_local.1 - pix_off);
-
-        if x_init.1 <= x_init.0 || y_init.1 <= y_init.0 {
-            break;
-        }
-
-        // Extract local edge region
-        let local_width = (x_init.1 - x_init.0) as usize;
-        let local_height = (y_init.1 - y_init.0) as usize;
-
-        // Find connected components in edge map (MATLAB lines 93-96)
-        let mut edge_pixels = Vec::new();
-
-        for y in y_init.0..y_init.1 {
-            for x in x_init.0..x_init.1 {
-                if y >= y_lu as isize && y < y_rl as isize &&
-                   x >= x_lu as isize && x < x_rl as isize {
-                    let roi_y = (y - y_lu as isize) as usize;
-                    let roi_x = (x - x_lu as isize) as usize;
-                    if roi_y < edge_map.nrows() && roi_x < edge_map.ncols() && edge_map[[roi_y, roi_x]] {
-                        edge_pixels.push((x as f64, y as f64));
-                    }
-                }
-            }
-        }
-
-        // Check minimum edge pixels (MATLAB line 102)
-        if edge_pixels.len() >= params.min_edge_pixels {
-            spot_found = true;
-
-            // Fit circle to edge pixels (MATLAB line 120)
-            if let Some(circle) = fit_circle_robust(&edge_pixels) {
-                // Calculate movement (MATLAB lines 125-127)
-                let dx = circle.x - current_midpoint.0;
-                let dy = circle.y - current_midpoint.1;
-                let delta = (dx * dx + dy * dy).sqrt();
-
-                current_midpoint = (circle.x, circle.y);
-                final_circle = Some(circle);
-
-                // Converged? (MATLAB line 71)
-                if delta <= 2.0_f64.sqrt() {
-                    break;
-                }
-
-                // Shift window for next iteration (MATLAB lines 131-139)
-                x_local.0 = (x_local.0 as f64 + dx).round() as isize;
-                x_local.1 = (x_local.1 as f64 + dx).round() as isize;
-                y_local.0 = (y_local.0 as f64 + dy).round() as isize;
-                y_local.1 = (y_local.1 as f64 + dy).round() as isize;
-            } else {
-                spot_found = false;
-                break;
-            }
-        } else {
-            spot_found = false;
-            break;
-        }
-    }
-
-    // Return result (MATLAB lines 143-152)
-    if spot_found {
-        Ok(final_circle)
-    } else {
-        // Use default radius for empty spots
-        Ok(Some(Circle {
+    // imageproc Canny has issues with very small images - need at least some padding
+    // For spot_pitch ~21, ROI is ~44x44, which works but may hit edge cases
+    // If too small, fall back to default
+    if roi_width < 10 || roi_height < 10 {
+        return Ok(Some(Circle {
             x: cx,
             y: cy,
             radius: default_radius,
-        }))
-    }
-}
-
-/// Old placeholder gradient-based method (deprecated)
-fn segment_by_edge_old(
-    image: &ImageData,
-    spot: &Spot,
-    params: &GridParams,
-) -> Result<Option<Circle>> {
-    use imageproc::morphology::{erode, dilate};
-    use imageproc::distance_transform::Norm;
-
-    let normalized = normalize_image(&image.data);
-    let spot_pitch = params.spot_pitch;
-
-    // Default radius for fallback
-    let default_radius = 0.6 * spot_pitch / 2.0;
-
-    // Get initial position
-    let cx = spot.grid_x;
-    let cy = spot.grid_y;
-
-    // Define ROI bounds (2× spot pitch window, matching MATLAB lines 8-17)
-    let x_lu = (cx - spot_pitch).max(0.0) as usize;
-    let y_lu = (cy - spot_pitch).max(0.0) as usize;
-    let x_rl = (cx + spot_pitch).min((image.width - 1) as f64) as usize;
-    let y_rl = (cy + spot_pitch).min((image.height - 1) as f64) as usize;
-
-    if x_rl <= x_lu || y_rl <= y_lu {
-        return Ok(None);
+        }));
     }
 
-    // Extract and filter ROI (MATLAB lines 26-33)
-    let roi_width = x_rl - x_lu + 1;
-    let roi_height = y_rl - y_lu + 1;
     let mut roi = Array2::zeros((roi_height, roi_width));
 
     for y in 0..roi_height {
@@ -227,27 +72,24 @@ fn segment_by_edge_old(
         // This matches: se = strel('disk', round(segNFilterDisk/2))
     }
 
-    // Apply Canny edge detection (MATLAB line 38)
-    let lower_threshold = params.edge_sensitivity[0] as f32;
-    let upper_threshold = params.edge_sensitivity[1] as f32;
+    // Apply simple gradient-based edge detection (MATLAB line 38)
+    // imageproc's Canny has bugs with small images, so use our own gradient method
+    let edge_threshold = params.edge_sensitivity[1];
 
-    // Convert to imageproc format
-    let array_view = roi.view();
-    let mut img_u8 = image::GrayImage::new(roi_width as u32, roi_height as u32);
-    for y in 0..roi_height {
-        for x in 0..roi_width {
-            let val = (array_view[[y, x]] * 255.0).min(255.0).max(0.0) as u8;
-            img_u8.put_pixel(x as u32, y as u32, image::Luma([val]));
-        }
-    }
+    // Smooth with Gaussian
+    let smoothed = gaussian_blur(&roi, 1.0);
 
-    let edges = imageproc::edges::canny(&img_u8, lower_threshold, upper_threshold);
+    // Compute gradient magnitude
+    let gradient = compute_gradient(&smoothed);
 
-    // Convert edges back to bool array
+    // Threshold to get binary edge map
+    let edges = threshold(&gradient, edge_threshold);
+
+    // Convert to bool array
     let mut edge_map = Array2::<bool>::default((roi_height, roi_width));
     for y in 0..roi_height {
         for x in 0..roi_width {
-            edge_map[[y, x]] = edges.get_pixel(x as u32, y as u32)[0] > 0;
+            edge_map[[y, x]] = edges[[y, x]];
         }
     }
 
@@ -273,8 +115,13 @@ fn segment_by_edge_old(
         y_local.1 = y_local.1.max(y_local.0 + 1).min(image.height as isize);
 
         // Define search window with offset (MATLAB lines 85-86)
-        let x_init = (x_local.0 + pix_off, x_local.1 - pix_off);
-        let y_init = (y_local.0 + pix_off, y_local.1 - pix_off);
+        let x_init_0 = (x_local.0 + pix_off).max(0).min(image.width as isize);
+        let x_init_1 = (x_local.1 - pix_off).max(x_init_0).min(image.width as isize);
+        let y_init_0 = (y_local.0 + pix_off).max(0).min(image.height as isize);
+        let y_init_1 = (y_local.1 - pix_off).max(y_init_0).min(image.height as isize);
+
+        let x_init = (x_init_0, x_init_1);
+        let y_init = (y_init_0, y_init_1);
 
         if x_init.1 <= x_init.0 || y_init.1 <= y_init.0 {
             break;
@@ -406,10 +253,7 @@ fn segment_by_edge_old(
     }
 
     // Fit circle to edge points
-    match fit_circle_robust(&edge_points, spot.grid_x, spot.grid_y, params) {
-        Ok(circle) => Ok(Some(circle)),
-        Err(_) => Ok(None), // Return None if fit fails (spot will be marked as bad)
-    }
+    Ok(fit_circle_robust(&edge_points))
 }
 
 /// Segment spot using Hough transform
@@ -462,57 +306,6 @@ fn segment_by_hough(
     }
 }
 
-/// Fit circle to points using robust least squares
-fn fit_circle_robust(
-    points: &[(f64, f64)],
-    init_x: f64,
-    init_y: f64,
-    params: &GridParams,
-) -> Result<Circle> {
-    if points.is_empty() {
-        return Err(Error::SegmentationFailed("No points to fit".to_string()));
-    }
-
-    // Simple least squares circle fit
-    let n = points.len() as f64;
-    let sum_x: f64 = points.iter().map(|(x, _)| x).sum();
-    let sum_y: f64 = points.iter().map(|(_, y)| y).sum();
-
-    let mean_x = sum_x / n;
-    let mean_y = sum_y / n;
-
-    // Estimate radius from distance to mean
-    let mut sum_r = 0.0;
-    for (x, y) in points {
-        let dx = x - mean_x;
-        let dy = y - mean_y;
-        sum_r += (dx * dx + dy * dy).sqrt();
-    }
-    let radius = sum_r / n;
-
-    // Validate radius - if out of bounds or zero, skip validation and let calling code decide
-    // This allows bad spots to be marked rather than failing the entire batch
-    if radius == 0.0 || radius.is_nan() || radius.is_infinite() {
-        return Err(Error::SegmentationFailed(format!(
-            "Invalid radius: {}",
-            radius
-        )));
-    }
-
-    let min_radius = params.min_diameter * params.spot_pitch / 2.0;
-    let max_radius = params.max_diameter * params.spot_pitch / 2.0;
-
-    if radius < min_radius || radius > max_radius {
-        // Out of bounds but valid - still return it, let the caller decide
-        tracing::warn!("Radius {} out of suggested bounds [{}, {}], but accepting", radius, min_radius, max_radius);
-    }
-
-    Ok(Circle {
-        x: mean_x,
-        y: mean_y,
-        radius,
-    })
-}
 
 /// Simplified Hough circle detection
 fn hough_circles(
@@ -773,8 +566,16 @@ fn calculate_tukey_weights(residuals: &[f64]) -> Vec<f64> {
     let k = 4.685;  // Tukey constant
 
     // Calculate MAD (Median Absolute Deviation)
-    let mut abs_res: Vec<f64> = residuals.iter().map(|r| r.abs()).collect();
-    abs_res.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let mut abs_res: Vec<f64> = residuals.iter()
+        .filter(|r| r.is_finite())
+        .map(|r| r.abs())
+        .collect();
+
+    if abs_res.is_empty() {
+        return vec![0.0; residuals.len()];
+    }
+
+    abs_res.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     let mad = if abs_res.len() % 2 == 0 {
         (abs_res[abs_res.len() / 2 - 1] + abs_res[abs_res.len() / 2]) / 2.0
@@ -887,7 +688,7 @@ mod tests {
             points.push((x, y));
         }
 
-        let circle = fit_circle_robust(&points, center.0, center.1, &params).unwrap();
+        let circle = fit_circle_robust(&points).unwrap();
 
         assert!((circle.x - center.0).abs() < 0.1);
         assert!((circle.y - center.1).abs() < 0.1);
