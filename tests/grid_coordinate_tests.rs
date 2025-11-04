@@ -155,6 +155,7 @@ mod grid_tests {
         }
 
         // Check horizontal spacing (same row, adjacent columns)
+        // With rounding, spacing will be spot_pitch.round() (21 or 22 for pitch=21.5)
         for row in 1..=5 {
             for col in 1..4 {
                 if let (Some(spot1), Some(spot2)) = (
@@ -162,14 +163,16 @@ mod grid_tests {
                     spot_map.get(&(row, col + 1))
                 ) {
                     let dy = spot2.grid_y - spot1.grid_y;
-                    assert!((dy - spot_pitch).abs() < 0.01,
-                        "Horizontal spacing at row={} between col {} and {} is {:.2}, expected {:.2}",
+                    // With rounding, spacing should be close to spot_pitch (within 1px)
+                    assert!((dy - spot_pitch).abs() < 1.0,
+                        "Horizontal spacing at row={} between col {} and {} is {:.2}, expected ~{:.2}",
                         row, col, col+1, dy, spot_pitch);
                 }
             }
         }
 
         // Check vertical spacing (same column, adjacent rows)
+        // With rounding, spacing will be spot_pitch.round() (21 or 22 for pitch=21.5)
         for col in 1..=5 {
             for row in 1..4 {
                 if let (Some(spot1), Some(spot2)) = (
@@ -177,8 +180,9 @@ mod grid_tests {
                     spot_map.get(&(row + 1, col))
                 ) {
                     let dx = spot2.grid_x - spot1.grid_x;
-                    assert!((dx - spot_pitch).abs() < 0.01,
-                        "Vertical spacing at col={} between row {} and {} is {:.2}, expected {:.2}",
+                    // With rounding, spacing should be close to spot_pitch (within 1px)
+                    assert!((dx - spot_pitch).abs() < 1.0,
+                        "Vertical spacing at col={} between row {} and {} is {:.2}, expected ~{:.2}",
                         col, row, row+1, dx, spot_pitch);
                 }
             }

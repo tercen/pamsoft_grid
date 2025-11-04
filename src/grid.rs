@@ -404,8 +404,9 @@ pub fn generate_grid_coordinates(
 
             let (rot_x, rot_y) = rotate_point(rel_x, rel_y, rotation);
 
-            let abs_x = center.0 + rot_x;
-            let abs_y = center.1 + rot_y;
+            // Round coordinates to eliminate diagonal bias from non-integer pitch
+            let abs_x = (center.0 + rot_x).round();
+            let abs_y = (center.1 + rot_y).round();
 
             // DEBUG: Log first few spots
             if spots.len() < 3 || (row == 1 && col == 1) {
@@ -468,8 +469,9 @@ pub fn generate_grid_coordinates(
 
             let (rot_x, rot_y) = rotate_point(rel_x, rel_y, rotation);
 
-            let abs_x = center.0 + rot_x;
-            let abs_y = center.1 + rot_y;
+            // Round coordinates to eliminate diagonal bias from non-integer pitch
+            let abs_x = (center.0 + rot_x).round();
+            let abs_y = (center.1 + rot_y).round();
 
             // DEBUG: Log reference spots
             tracing::info!(
