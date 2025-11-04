@@ -113,10 +113,12 @@ fn segment_by_edge(
     let cy = spot.grid_y;
 
     // Define ROI bounds (2× spot pitch window, matching MATLAB lines 8-17)
-    let x_lu = (cx - spot_pitch).max(0.0) as usize;
-    let y_lu = (cy - spot_pitch).max(0.0) as usize;
-    let x_rl = (cx + spot_pitch).min((image.width - 1) as f64) as usize;
-    let y_rl = (cy + spot_pitch).min((image.height - 1) as f64) as usize;
+    // Use .round() to ensure consistent rounding behavior with fractional coordinates
+    // This fixes the diagonal bias caused by truncation with non-integer spot_pitch (21.5)
+    let x_lu = (cx - spot_pitch).max(0.0).round() as usize;
+    let y_lu = (cy - spot_pitch).max(0.0).round() as usize;
+    let x_rl = (cx + spot_pitch).min((image.width - 1) as f64).round() as usize;
+    let y_rl = (cy + spot_pitch).min((image.height - 1) as f64).round() as usize;
 
     eprintln!("ROI: cx={}, cy={}, image {}x{}, x_lu={}, x_rl={}, y_lu={}, y_rl={}",
               cx, cy, image.width, image.height, x_lu, x_rl, y_lu, y_rl);
