@@ -2,7 +2,7 @@
 /// This test validates that Phase 2 accuracy is maintained
 
 use pamsoft_grid::config::GridParams;
-use pamsoft_grid::io::load_tiff;
+use pamsoft_grid::io::load_tiff_image as load_tiff;
 use pamsoft_grid::segmentation::segment_spots;
 use pamsoft_grid::types::Spot;
 use std::path::PathBuf;
@@ -104,8 +104,8 @@ fn load_initial_spots() -> Result<Vec<Spot>, Box<dyn std::error::Error>> {
 
         let id = record.get(0).unwrap_or("").to_string();
         let is_reference = record.get(1).unwrap_or("FALSE") == "TRUE";
-        let row: usize = record.get(2).unwrap_or("0").parse().unwrap_or(0);
-        let col: usize = record.get(3).unwrap_or("0").parse().unwrap_or(0);
+        let row: i32 = record.get(2).unwrap_or("0").parse().unwrap_or(0);
+        let col: i32 = record.get(3).unwrap_or("0").parse().unwrap_or(0);
         let grid_x: f64 = record.get(5).unwrap_or("0").parse().unwrap_or(0.0);
         let grid_y: f64 = record.get(6).unwrap_or("0").parse().unwrap_or(0.0);
 
@@ -114,14 +114,17 @@ fn load_initial_spots() -> Result<Vec<Spot>, Box<dyn std::error::Error>> {
             is_reference,
             row,
             col,
-            fixed_x: 0.0,
-            fixed_y: 0.0,
+            x_offset: 0.0,
+            y_offset: 0.0,
+            x_fixed: 0.0,
+            y_fixed: 0.0,
             grid_x,
             grid_y,
             diameter: 0.0,
             is_manual: false,
             is_bad: false,
             is_empty: false,
+            rotation: 0.0,
         });
     }
 
@@ -208,7 +211,8 @@ fn test_p92_matlab_ground_truth_regression() {
 
     // Run segmentation
     println!("Running segmentation...");
-    let rust_results = segment_spots(&image, &initial_spots, &params)
+    let mut rust_results = initial_spots.clone();
+    segment_spots(&image, &mut rust_results, &params)
         .expect("Segmentation failed");
 
     // Load MATLAB ground truth

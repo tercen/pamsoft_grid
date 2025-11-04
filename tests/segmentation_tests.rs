@@ -2,6 +2,7 @@
 /// Tests both unit-level components and integration with MATLAB ground truth
 
 use pamsoft_grid::config::GridParams;
+use pamsoft_grid::segmentation::segment_spots;
 use pamsoft_grid::types::{ImageData, Spot};
 use ndarray::Array2;
 use std::f64::consts::PI;
@@ -215,8 +216,8 @@ mod integration_tests {
     use super::*;
 
     /// Helper to create test image with a spot
-    fn create_spot_image(center_x: usize, center_y: usize, radius: f64, width: usize, height: usize) -> Array2<f64> {
-        let mut image = Array2::<f64>::from_elem((height, width), 50.0); // Background
+    fn create_spot_image(center_x: usize, center_y: usize, radius: f64, width: usize, height: usize) -> Array2<u16> {
+        let mut image = Array2::<u16>::from_elem((height, width), 50); // Background
 
         for y in 0..height {
             for x in 0..width {
@@ -226,7 +227,7 @@ mod integration_tests {
 
                 // Create edge at radius
                 if (dist - radius).abs() < 1.5 {
-                    image[[y, x]] = 200.0; // Bright edge
+                    image[[y, x]] = 200; // Bright edge
                 }
             }
         }
@@ -247,37 +248,39 @@ mod integration_tests {
             data: image_data,
             width: 100,
             height: 100,
-            bits_per_sample: 16,
+            name: "test_image".to_string(),
         };
 
         // Create spot at expected center
-        let spot = Spot {
+        let mut spot = Spot {
             id: "test_spot".to_string(),
             is_reference: false,
             row: 1,
             col: 1,
-            fixed_x: 0.0,
-            fixed_y: 0.0,
+            x_offset: 0.0,
+            y_offset: 0.0,
+            x_fixed: 0.0,
+            y_fixed: 0.0,
             grid_x: center_x as f64,
             grid_y: center_y as f64,
             diameter: 0.0,
             is_manual: false,
             is_bad: false,
             is_empty: false,
+            rotation: 0.0,
         };
 
         let params = GridParams::default();
 
         // Segment the spot
-        let spots = vec![spot];
-        let result = segment_spots(&image, &spots, &params);
+        let mut spots = vec![spot];
+        let result = segment_spots(&image, &mut spots, &params);
 
         assert!(result.is_ok(), "Segmentation should succeed");
-        let segmented = result.unwrap();
 
-        assert_eq!(segmented.len(), 1, "Should have one spot");
+        assert_eq!(spots.len(), 1, "Should have one spot");
 
-        let seg_spot = &segmented[0];
+        let seg_spot = &spots[0];
 
         // Check position accuracy (should be very close to center)
         let pos_error_x = (seg_spot.grid_x - center_x as f64).abs();
@@ -299,7 +302,7 @@ mod integration_tests {
     #[test]
     fn test_segment_weak_edges() {
         // Create spot with weak edges (low contrast)
-        let mut image = Array2::<f64>::from_elem((100, 100), 100.0);
+        let mut image = Array2::<u16>::from_elem((100, 100), 100);
         let center_x = 50;
         let center_y = 50;
         let radius = 6.45;
@@ -312,7 +315,7 @@ mod integration_tests {
 
                 // Weak edge (only 20 intensity difference)
                 if (dist - radius).abs() < 1.5 {
-                    image[[y, x]] = 120.0;
+                    image[[y, x]] = 120;
                 }
             }
         }
@@ -321,7 +324,7 @@ mod integration_tests {
             data: image,
             width: 100,
             height: 100,
-            bits_per_sample: 16,
+            name: "weak_edge_test".to_string(),
         };
 
         let spot = Spot {
@@ -329,21 +332,24 @@ mod integration_tests {
             is_reference: false,
             row: 1,
             col: 1,
-            fixed_x: 0.0,
-            fixed_y: 0.0,
+            x_offset: 0.0,
+            y_offset: 0.0,
+            x_fixed: 0.0,
+            y_fixed: 0.0,
             grid_x: center_x as f64,
             grid_y: center_y as f64,
             diameter: 0.0,
             is_manual: false,
             is_bad: false,
             is_empty: false,
+            rotation: 0.0,
         };
 
         let mut params = GridParams::default();
         params.edge_sensitivity = [0.0, 0.02]; // More sensitive to detect weak edges
 
-        let spots = vec![spot];
-        let result = segment_spots(&image_data, &spots, &params);
+        let mut spots = vec![spot];
+        let result = segment_spots(&image_data, &mut spots, &params);
 
         assert!(result.is_ok(), "Segmentation should handle weak edges");
         // Might be marked empty due to weak edges, which is correct behavior
@@ -357,12 +363,12 @@ mod integration_tests {
         use rand_chacha::ChaCha8Rng;
 
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        let mut image = Array2::<f64>::zeros((100, 100));
+        let mut image = Array2::<u16>::zeros((100, 100));
 
         // Add noise to background
         for y in 0..100 {
             for x in 0..100 {
-                image[[y, x]] = 100.0 + rng.gen_range(-20.0..20.0);
+                image[[y, x]] = (100.0 + rng.gen_range(-20.0..20.0)) as u16;
             }
         }
 
@@ -378,7 +384,7 @@ mod integration_tests {
                 let dist = (dx * dx + dy * dy).sqrt();
 
                 if (dist - radius).abs() < 1.5 {
-                    image[[y, x]] = 250.0; // Strong edge above noise
+                    image[[y, x]] = 250; // Strong edge above noise
                 }
             }
         }
@@ -387,7 +393,7 @@ mod integration_tests {
             data: image,
             width: 100,
             height: 100,
-            bits_per_sample: 16,
+            name: "noisy_test".to_string(),
         };
 
         let spot = Spot {
@@ -395,25 +401,27 @@ mod integration_tests {
             is_reference: false,
             row: 1,
             col: 1,
-            fixed_x: 0.0,
-            fixed_y: 0.0,
+            x_offset: 0.0,
+            y_offset: 0.0,
+            x_fixed: 0.0,
+            y_fixed: 0.0,
             grid_x: center_x as f64,
             grid_y: center_y as f64,
             diameter: 0.0,
             is_manual: false,
             is_bad: false,
             is_empty: false,
+            rotation: 0.0,
         };
 
         let params = GridParams::default();
-        let spots = vec![spot];
-        let result = segment_spots(&image_data, &spots, &params);
+        let mut spots = vec![spot];
+        let result = segment_spots(&image_data, &mut spots, &params);
 
         assert!(result.is_ok(), "Robust fitting should handle noise");
-        let segmented = result.unwrap();
 
         // Should still detect spot accurately despite noise
-        assert!(!segmented[0].is_empty, "Strong spot should be detected despite noise");
+        assert!(!spots[0].is_empty, "Strong spot should be detected despite noise");
     }
 }
 
