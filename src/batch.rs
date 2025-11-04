@@ -79,8 +79,8 @@ pub fn process_single_group(config: &GroupConfig) -> Result<Vec<SpotResult>> {
     // Process gridding
     let mut spots = process_gridding(&[grid_image.clone()], &layout, &params)?;
 
-    // TEMP: Skip segmentation to test pure grid generation
-    // segment_spots(&grid_image, &mut spots, &params)?;
+    // Segment spots (re-enabled for Phase 2)
+    segment_spots(&grid_image, &mut spots, &params)?;
 
     // Quantify spots
     let results = quantify_spots(&grid_image, &spots, &config.group_id, &params)?;
