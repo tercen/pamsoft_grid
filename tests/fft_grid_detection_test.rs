@@ -6,9 +6,10 @@
 /// This test verifies if FFT detection actually works
 
 use pamsoft_grid::config::GridParams;
-use pamsoft_grid::grid::find_grid_center;
+use pamsoft_grid::grid::{find_grid_center, generate_grid_coordinates};
 use pamsoft_grid::io::{load_tiff_image, read_layout_file};
 use std::path::PathBuf;
+use image::{ImageBuffer, Rgb, RgbImage};
 
 #[test]
 #[ignore] // Run with: cargo test test_fft_find_grid_center_vs_matlab -- --ignored --nocapture
@@ -288,4 +289,144 @@ fn test_fft_single_rotation_with_opencv() {
             panic!("FFT detection with OpenCV refinement failed: {:?}", e);
         }
     }
+}
+
+#[test]
+#[ignore] // Run with: cargo test test_visualize_grid_detection -- --ignored --nocapture
+fn test_visualize_grid_detection() {
+    // This test creates a visualization of the detected grid overlaid on the image
+
+    let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("tests");
+
+    let image_dir = test_dir
+        .join("test_data")
+        .join("631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240")
+        .join("ImageResults");
+
+    let image_path = image_dir.join("631402617_W1_F1_T10_P92_I433_A29.tif");
+    let layout_path = test_dir
+        .join("test_data")
+        .join("631402617_631402618_631402619-on 1200PTKlysv03-run 160210155240")
+        .join("631402617_631402618_631402619 86312 Array Layout.txt");
+
+    // Load test data
+    println!("Loading test image: {:?}", image_path);
+    let image = load_tiff_image(&image_path).expect("Failed to load test image");
+    println!("Image loaded: {}x{} pixels", image.width, image.height);
+
+    println!("Loading layout file: {:?}", layout_path);
+    let layout = read_layout_file(&layout_path).expect("Failed to load layout file");
+
+    // Configure parameters for single rotation (OpenCV refinement)
+    let mut params = GridParams::default();
+    params.spot_pitch = 21.5;
+    params.spot_size = 12.9;
+    params.rotation_range = vec![0.0];
+    params.min_diameter = 0.45;
+    params.max_diameter = 0.85;
+
+    println!("\n=== DETECTING GRID CENTER ===");
+    let (cx, cy, rotation) = find_grid_center(&image, &layout, &params)
+        .expect("Grid detection failed");
+
+    println!("Detected center: ({:.2}, {:.2}), rotation: {:.2}°", cx, cy, rotation);
+
+    // Generate grid coordinates
+    println!("\n=== GENERATING GRID COORDINATES ===");
+    let spots = generate_grid_coordinates((cx, cy), rotation, params.spot_pitch, &layout);
+    println!("Generated {} spot coordinates", spots.len());
+
+    // Create visualization
+    println!("\n=== CREATING VISUALIZATION ===");
+
+    // Convert grayscale image to RGB for visualization
+    let mut vis_image: RgbImage = ImageBuffer::new(image.width as u32, image.height as u32);
+
+    // Normalize and convert to RGB
+    let max_val = *image.data.iter().max().unwrap_or(&1) as f64;
+    for y in 0..image.height {
+        for x in 0..image.width {
+            let val = image.data[[y, x]] as f64;
+            let normalized = ((val / max_val) * 255.0) as u8;
+            vis_image.put_pixel(x as u32, y as u32, Rgb([normalized, normalized, normalized]));
+        }
+    }
+
+    // Draw detected spots
+    // MATLAB convention: row → gridX, col → gridY
+    // For image coordinates: gridY is horizontal (x), gridX is vertical (y)
+    for spot in &spots {
+        let sx = spot.grid_y.round() as i32; // gridY → image X (horizontal)
+        let sy = spot.grid_x.round() as i32; // gridX → image Y (vertical)
+
+        // Draw cross marker (5x5 pixels)
+        let color = if spot.is_reference {
+            Rgb([255, 0, 0]) // Red for reference spots
+        } else {
+            Rgb([0, 255, 0]) // Green for regular spots
+        };
+
+        for dy in -2..=2 {
+            for dx in -2..=2 {
+                let px = sx + dx;
+                let py = sy + dy;
+
+                if px >= 0 && px < image.width as i32 && py >= 0 && py < image.height as i32 {
+                    // Draw cross pattern
+                    if dx == 0 || dy == 0 {
+                        vis_image.put_pixel(px as u32, py as u32, color);
+                    }
+                }
+            }
+        }
+
+        // Draw circle around spot
+        let radius = (params.spot_pitch / 2.0) as i32;
+        for angle in 0..36 {
+            let theta = (angle as f64) * std::f64::consts::PI / 18.0;
+            let dx = (radius as f64 * theta.cos()).round() as i32;
+            let dy = (radius as f64 * theta.sin()).round() as i32;
+            let px = sx + dx;
+            let py = sy + dy;
+
+            if px >= 0 && px < image.width as i32 && py >= 0 && py < image.height as i32 {
+                vis_image.put_pixel(px as u32, py as u32, color);
+            }
+        }
+    }
+
+    // Draw center point (larger, bright blue)
+    // Center is (cx, cy) where cx is like gridX, cy is like gridY
+    // So swap: cy → image X, cx → image Y
+    let center_color = Rgb([0, 0, 255]);
+    for dy in -5..=5 {
+        for dx in -5..=5 {
+            let px = cy as i32 + dx; // cy → image X
+            let py = cx as i32 + dy; // cx → image Y
+
+            if px >= 0 && px < image.width as i32 && py >= 0 && py < image.height as i32 {
+                if dx * dx + dy * dy <= 25 { // Circle with radius 5
+                    vis_image.put_pixel(px as u32, py as u32, center_color);
+                }
+            }
+        }
+    }
+
+    // Save visualization
+    let output_path = test_dir.join("grid_detection_visualization.png");
+    vis_image.save(&output_path).expect("Failed to save visualization");
+
+    println!("\n✅ Visualization saved to: {:?}", output_path);
+    println!("\nLegend:");
+    println!("  🔴 Red crosses + circles = Reference spots");
+    println!("  🟢 Green crosses + circles = Regular spots");
+    println!("  🔵 Blue dot = Detected grid center ({:.2}, {:.2})", cx, cy);
+
+    println!("\n📊 Statistics:");
+    println!("  Total spots: {}", spots.len());
+    println!("  Reference spots: {}", spots.iter().filter(|s| s.is_reference).count());
+    println!("  Regular spots: {}", spots.iter().filter(|s| !s.is_reference).count());
 }
