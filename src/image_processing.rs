@@ -345,7 +345,7 @@ pub fn canny_edge_detection(
     let (magnitude, direction) = compute_gradient_magnitude_direction(&grad_x, &grad_y);
 
     // Step 4: Non-maximum suppression
-    let suppressed = non_maximum_suppression(&magnitude, &direction);
+    let suppressed = non_maximum_suppression(&magnitude, &direction, &grad_x, &grad_y);
 
     // Step 5: Hysteresis thresholding
     hysteresis_thresholding(&suppressed, low_threshold, high_threshold)
@@ -401,43 +401,63 @@ fn compute_gradient_magnitude_direction(grad_x: &Array2<f64>, grad_y: &Array2<f6
     (magnitude, direction)
 }
 
-/// Non-maximum suppression - thin edges to single pixel width
-fn non_maximum_suppression(magnitude: &Array2<f64>, direction: &Array2<f64>) -> Array2<f64> {
+/// Non-maximum suppression matching OpenCV's Canny implementation exactly.
+///
+/// OpenCV's NMS uses:
+/// - 4-direction quantization via tan(22.5°)/tan(67.5°) sector boundaries
+/// - L1 gradient magnitude: |dx| + |dy| (not L2)
+/// - Asymmetric comparison: > on one side, >= on the other (horizontal/vertical)
+///   and > on both sides for diagonal
+/// - No interpolation
+fn non_maximum_suppression(magnitude: &Array2<f64>, _direction: &Array2<f64>,
+                           grad_x: &Array2<f64>, grad_y: &Array2<f64>) -> Array2<f64> {
     let (height, width) = magnitude.dim();
     let mut suppressed = Array2::<f64>::zeros((height, width));
+
+    // tan(22.5°) ≈ 0.41421356
+    let tg22 = std::f64::consts::FRAC_PI_8.tan(); // tan(22.5°)
 
     for y in 1..height-1 {
         for x in 1..width-1 {
             let mag = magnitude[[y, x]];
-            let angle = direction[[y, x]];
+            if mag == 0.0 {
+                continue;
+            }
 
-            // Quantize angle to 0°, 45°, 90°, 135°
-            let angle_deg = angle.to_degrees();
-            let angle_quantized = ((angle_deg + 180.0) / 45.0).round() as i32 % 4;
+            let ax = grad_x[[y, x]].abs();
+            let ay = grad_y[[y, x]].abs();
 
-            // Compare with neighbors in gradient direction
-            let (n1, n2) = match angle_quantized {
-                0 => {
-                    // 0° - horizontal, compare left and right
-                    (magnitude[[y, x-1]], magnitude[[y, x+1]])
-                },
-                1 => {
-                    // 45° - diagonal /, compare NE and SW
-                    (magnitude[[y-1, x+1]], magnitude[[y+1, x-1]])
-                },
-                2 => {
-                    // 90° - vertical, compare up and down
-                    (magnitude[[y-1, x]], magnitude[[y+1, x]])
-                },
-                _ => {
-                    // 135° - diagonal \, compare NW and SE
-                    (magnitude[[y-1, x-1]], magnitude[[y+1, x+1]])
+            // Classify direction using OpenCV's sector boundaries
+            let tg22x = ax * tg22;
+            let tg67x = tg22x + 2.0 * ax; // ax * (tan(22.5) + 2) ≈ ax * tan(67.5)
+
+            if ay < tg22x {
+                // HORIZONTAL: gradient angle < 22.5° from horizontal
+                // Compare left and right (asymmetric: > left, >= right)
+                if mag > magnitude[[y, x-1]] && mag >= magnitude[[y, x+1]] {
+                    suppressed[[y, x]] = mag;
                 }
-            };
-
-            // Keep only if local maximum
-            if mag >= n1 && mag >= n2 {
-                suppressed[[y, x]] = mag;
+            } else if ay > tg67x {
+                // VERTICAL: gradient angle > 67.5° from horizontal
+                // Compare up and down (asymmetric: > up, >= down)
+                if mag > magnitude[[y-1, x]] && mag >= magnitude[[y+1, x]] {
+                    suppressed[[y, x]] = mag;
+                }
+            } else {
+                // DIAGONAL: gradient angle between 22.5° and 67.5°
+                // Sign of (dx XOR dy) determines which diagonal
+                let same_sign = (grad_x[[y, x]] >= 0.0) == (grad_y[[y, x]] >= 0.0);
+                if same_sign {
+                    // \ diagonal (top-left / bottom-right)
+                    if mag > magnitude[[y-1, x-1]] && mag > magnitude[[y+1, x+1]] {
+                        suppressed[[y, x]] = mag;
+                    }
+                } else {
+                    // / diagonal (top-right / bottom-left)
+                    if mag > magnitude[[y-1, x+1]] && mag > magnitude[[y+1, x-1]] {
+                        suppressed[[y, x]] = mag;
+                    }
+                }
             }
         }
     }
@@ -656,13 +676,100 @@ pub fn compute_gradient_opencv(data: &Array2<f64>) -> Result<Array2<f64>> {
     Ok(magnitude)
 }
 
-/// Canny edge detection using OpenCV (20x faster than pure Rust)
-/// Implements the complete Canny algorithm using OpenCV's optimized implementation
+/// Full float-precision Canny edge detection. No u8 conversion anywhere.
+///
+/// Pipeline:
+///   1. OpenCV Gaussian blur on f32 (proper Gaussian kernel)
+///   2. OpenCV Sobel on f32 (gradient computation)
+///   3. L1 gradient magnitude (|dx|+|dy|, matching OpenCV default) on f64
+///   4. Non-maximum suppression on f64 (matching OpenCV's 4-sector algorithm)
+///   5. Hysteresis thresholding on f64
+///
+/// Thresholds follow MATLAB convention: sensitivity * max(gradient_magnitude).
+#[cfg(feature = "opencv")]
+pub fn canny_edge_detection_float(
+    image: &Array2<f64>,
+    sensitivity: [f64; 2],
+    sigma: f64,
+) -> Result<Array2<bool>> {
+    // Step 1: Convert to f32 Mat (keep [0,1] range — thresholds scale accordingly)
+    let mat = array_to_mat_f32(image)?;
+
+    // Step 2: Gaussian blur on f32 (proper Gaussian, full float precision)
+    let blurred = if sigma > 0.0 {
+        let kernel_size = (2.0 * (3.0 * sigma).ceil() + 1.0) as i32;
+        let kernel_size = if kernel_size % 2 == 0 { kernel_size + 1 } else { kernel_size };
+
+        let mut blurred_mat = Mat::default();
+        imgproc::gaussian_blur(
+            &mat,
+            &mut blurred_mat,
+            core::Size::new(kernel_size, kernel_size),
+            sigma,
+            sigma,
+            core::BORDER_DEFAULT,
+        ).map_err(|e| Error::ProcessingError(format!("Gaussian blur failed: {}", e)))?;
+        blurred_mat
+    } else {
+        mat
+    };
+
+    // Step 3: Sobel gradients on f32
+    let mut grad_x_mat = Mat::default();
+    let mut grad_y_mat = Mat::default();
+    imgproc::sobel(&blurred, &mut grad_x_mat, CV_32F, 1, 0, 3, 1.0, 0.0, core::BORDER_DEFAULT)
+        .map_err(|e| Error::ProcessingError(format!("Sobel X failed: {}", e)))?;
+    imgproc::sobel(&blurred, &mut grad_y_mat, CV_32F, 0, 1, 3, 1.0, 0.0, core::BORDER_DEFAULT)
+        .map_err(|e| Error::ProcessingError(format!("Sobel Y failed: {}", e)))?;
+
+    // Step 4: Convert gradients to Array2<f64>
+    let grad_x = mat_to_array_f64(&grad_x_mat)?;
+    let grad_y = mat_to_array_f64(&grad_y_mat)?;
+
+    // Step 5: L1 gradient magnitude (|dx| + |dy|, matching OpenCV Canny default)
+    let (height, width) = grad_x.dim();
+    let mut magnitude = Array2::<f64>::zeros((height, width));
+    for y in 0..height {
+        for x in 0..width {
+            magnitude[[y, x]] = grad_x[[y, x]].abs() + grad_y[[y, x]].abs();
+        }
+    }
+
+    // Step 6: Compute MATLAB-compatible thresholds: sensitivity * max(mag)
+    let max_mag = magnitude.iter().cloned().fold(0.0_f64, f64::max);
+    if max_mag < 1e-10 {
+        return Ok(Array2::default(image.dim()));
+    }
+    let high_threshold = sensitivity[1] * max_mag;
+    let low_threshold = if sensitivity[0] > 0.0 {
+        sensitivity[0] * max_mag
+    } else {
+        0.4 * high_threshold
+    };
+
+    // Step 7: Non-maximum suppression matching OpenCV (f64 precision)
+    let direction = Array2::<f64>::zeros((height, width)); // unused, NMS uses grad_x/grad_y directly
+    let suppressed = non_maximum_suppression(&magnitude, &direction, &grad_x, &grad_y);
+
+    // Step 8: Hysteresis thresholding with absolute thresholds
+    // For [0,1] input, thresholds may be < 1.0 which hysteresis would rescale.
+    // Convert to fractions of max_suppressed to match hysteresis's auto-scaling.
+    let max_suppressed = suppressed.iter().cloned().fold(0.0_f64, f64::max);
+    if max_suppressed < 1e-10 {
+        return Ok(Array2::default(image.dim()));
+    }
+    let high_frac = high_threshold / max_suppressed;
+    let low_frac = low_threshold / max_suppressed;
+    Ok(hysteresis_thresholding(&suppressed, low_frac, high_frac))
+}
+
+/// Canny edge detection using OpenCV with MATLAB-compatible auto-thresholding.
+/// The sensitivity parameter is interpreted as MATLAB does: gradient histogram
+/// percentiles, not absolute threshold values.
 #[cfg(feature = "opencv")]
 pub fn canny_edge_detection_opencv(
     image: &Array2<f64>,
-    low_threshold: f64,
-    high_threshold: f64,
+    sensitivity: [f64; 2],
     sigma: f64,
 ) -> Result<Array2<bool>> {
     // Convert to 8-bit for OpenCV Canny (it expects 8-bit input)
@@ -700,11 +807,36 @@ pub fn canny_edge_detection_opencv(
         mat_u8
     };
 
-    // Apply Canny edge detection
-    let mut edges = Mat::default();
-    let low_thresh = (low_threshold * 255.0) as f64;
-    let high_thresh = (high_threshold * 255.0) as f64;
+    // Compute MATLAB-compatible auto-thresholds from Sobel gradient magnitudes
+    let (low_thresh, high_thresh) = {
+        let mut gx = Mat::default();
+        let mut gy = Mat::default();
+        imgproc::sobel(&blurred, &mut gx, CV_32F, 1, 0, 3, 1.0, 0.0, core::BORDER_DEFAULT)
+            .map_err(|e| Error::ProcessingError(format!("Sobel X failed: {}", e)))?;
+        imgproc::sobel(&blurred, &mut gy, CV_32F, 0, 1, 3, 1.0, 0.0, core::BORDER_DEFAULT)
+            .map_err(|e| Error::ProcessingError(format!("Sobel Y failed: {}", e)))?;
+        let mut max_mag: f64 = 0.0;
+        for i in 0..h {
+            for j in 0..w {
+                let vx = *gx.at_2d::<f32>(i as i32, j as i32)
+                    .map_err(|e| Error::ProcessingError(format!("Read grad_x: {}", e)))? as f64;
+                let vy = *gy.at_2d::<f32>(i as i32, j as i32)
+                    .map_err(|e| Error::ProcessingError(format!("Read grad_y: {}", e)))? as f64;
+                let mag = (vx * vx + vy * vy).sqrt();
+                if mag > max_mag { max_mag = mag; }
+            }
+        }
+        if max_mag < 1e-10 {
+            (0.0, 1.0)
+        } else {
+            let high = sensitivity[1] * max_mag;
+            let low = if sensitivity[0] > 0.0 { sensitivity[0] * max_mag } else { 0.4 * high };
+            (low, high)
+        }
+    };
 
+    // Apply Canny edge detection with computed thresholds
+    let mut edges = Mat::default();
     imgproc::canny(
         &blurred,
         &mut edges,
@@ -1111,25 +1243,26 @@ pub fn compute_gradient_auto(data: &Array2<f64>) -> Result<Array2<f64>> {
     Ok(compute_gradient(data))
 }
 
-/// Canny edge detection (uses OpenCV if available, otherwise pure Rust)
+/// Canny edge detection with MATLAB-compatible auto-thresholding.
+/// sensitivity = [low_sens, high_sens] as MATLAB edge() sensitivity parameter.
+/// (uses OpenCV if available, otherwise pure Rust with absolute thresholds as fallback)
 #[cfg(feature = "opencv")]
 pub fn canny_edge_detection_auto(
     image: &Array2<f64>,
-    low_threshold: f64,
-    high_threshold: f64,
+    sensitivity: [f64; 2],
     sigma: f64,
 ) -> Result<Array2<bool>> {
-    canny_edge_detection_opencv(image, low_threshold, high_threshold, sigma)
+    canny_edge_detection_float(image, sensitivity, sigma)
 }
 
 #[cfg(not(feature = "opencv"))]
 pub fn canny_edge_detection_auto(
     image: &Array2<f64>,
-    low_threshold: f64,
-    high_threshold: f64,
+    sensitivity: [f64; 2],
     sigma: f64,
 ) -> Result<Array2<bool>> {
-    Ok(canny_edge_detection(image, low_threshold, high_threshold, sigma))
+    // Pure Rust fallback: interpret sensitivity as absolute thresholds (legacy behavior)
+    Ok(canny_edge_detection(image, sensitivity[0], sensitivity[1], sigma))
 }
 
 /// Morphological erosion (uses OpenCV if available, otherwise pure Rust)
