@@ -405,17 +405,18 @@ fn compute_gradient_magnitude_direction(grad_x: &Array2<f64>, grad_y: &Array2<f6
 ///
 /// OpenCV's NMS uses:
 /// - 4-direction quantization via tan(22.5°)/tan(67.5°) sector boundaries
-/// - L1 gradient magnitude: |dx| + |dy| (not L2)
-/// - Asymmetric comparison: > on one side, >= on the other (horizontal/vertical)
-///   and > on both sides for diagonal
-/// - No interpolation
+/// MATLAB-compatible interpolated non-maximum suppression.
+/// For each pixel, interpolate the magnitude at the two neighbors along the
+/// exact gradient direction and suppress if not a local maximum.
+/// This is more precise than OpenCV's 4-sector quantized approach and produces
+/// fewer spurious edges in low-contrast regions.
+///
+/// Gradient convention: grad_x = column derivative (Sobel dx), grad_y = row derivative (Sobel dy).
+/// Array indexing: magnitude[[row, col]] = magnitude[[y, x]].
 fn non_maximum_suppression(magnitude: &Array2<f64>, _direction: &Array2<f64>,
                            grad_x: &Array2<f64>, grad_y: &Array2<f64>) -> Array2<f64> {
     let (height, width) = magnitude.dim();
     let mut suppressed = Array2::<f64>::zeros((height, width));
-
-    // tan(22.5°) ≈ 0.41421356
-    let tg22 = std::f64::consts::FRAC_PI_8.tan(); // tan(22.5°)
 
     for y in 1..height-1 {
         for x in 1..width-1 {
@@ -424,40 +425,50 @@ fn non_maximum_suppression(magnitude: &Array2<f64>, _direction: &Array2<f64>,
                 continue;
             }
 
-            let ax = grad_x[[y, x]].abs();
-            let ay = grad_y[[y, x]].abs();
+            let gx = grad_x[[y, x]]; // column gradient
+            let gy = grad_y[[y, x]]; // row gradient
+            let ax = gx.abs();
+            let ay = gy.abs();
 
-            // Classify direction using OpenCV's sector boundaries
-            let tg22x = ax * tg22;
-            let tg67x = tg22x + 2.0 * ax; // ax * (tan(22.5) + 2) ≈ ax * tan(67.5)
-
-            if ay < tg22x {
-                // HORIZONTAL: gradient angle < 22.5° from horizontal
-                // Compare left and right (asymmetric: > left, >= right)
-                if mag > magnitude[[y, x-1]] && mag >= magnitude[[y, x+1]] {
-                    suppressed[[y, x]] = mag;
-                }
-            } else if ay > tg67x {
-                // VERTICAL: gradient angle > 67.5° from horizontal
-                // Compare up and down (asymmetric: > up, >= down)
-                if mag > magnitude[[y-1, x]] && mag >= magnitude[[y+1, x]] {
-                    suppressed[[y, x]] = mag;
+            // Interpolate magnitude at the two neighbors along the gradient direction.
+            // 8 octants mapped via |gx| vs |gy| and sign of gx*gy.
+            let (interp1, interp2) = if ax >= ay {
+                // Gradient closer to horizontal (|angle| <= 45° from x-axis)
+                let t = if ax > 0.0 { ay / ax } else { 0.0 };
+                if gx * gy >= 0.0 {
+                    // SE/NW tendency (both positive or both negative)
+                    // Forward: east → southeast; Backward: west → northwest
+                    let m1 = (1.0 - t) * magnitude[[y, x+1]] + t * magnitude[[y+1, x+1]];
+                    let m2 = (1.0 - t) * magnitude[[y, x-1]] + t * magnitude[[y-1, x-1]];
+                    (m1, m2)
+                } else {
+                    // NE/SW tendency (opposite signs)
+                    // Forward: east → northeast; Backward: west → southwest
+                    let m1 = (1.0 - t) * magnitude[[y, x+1]] + t * magnitude[[y-1, x+1]];
+                    let m2 = (1.0 - t) * magnitude[[y, x-1]] + t * magnitude[[y+1, x-1]];
+                    (m1, m2)
                 }
             } else {
-                // DIAGONAL: gradient angle between 22.5° and 67.5°
-                // Sign of (dx XOR dy) determines which diagonal
-                let same_sign = (grad_x[[y, x]] >= 0.0) == (grad_y[[y, x]] >= 0.0);
-                if same_sign {
-                    // \ diagonal (top-left / bottom-right)
-                    if mag > magnitude[[y-1, x-1]] && mag > magnitude[[y+1, x+1]] {
-                        suppressed[[y, x]] = mag;
-                    }
+                // Gradient closer to vertical (|angle| > 45° from x-axis)
+                let t = if ay > 0.0 { ax / ay } else { 0.0 };
+                if gx * gy >= 0.0 {
+                    // SE/NW tendency
+                    // Forward: south → southeast; Backward: north → northwest
+                    let m1 = (1.0 - t) * magnitude[[y+1, x]] + t * magnitude[[y+1, x+1]];
+                    let m2 = (1.0 - t) * magnitude[[y-1, x]] + t * magnitude[[y-1, x-1]];
+                    (m1, m2)
                 } else {
-                    // / diagonal (top-right / bottom-left)
-                    if mag > magnitude[[y-1, x+1]] && mag > magnitude[[y+1, x-1]] {
-                        suppressed[[y, x]] = mag;
-                    }
+                    // NE/SW tendency
+                    // Forward: north → northeast; Backward: south → southwest
+                    let m1 = (1.0 - t) * magnitude[[y-1, x]] + t * magnitude[[y-1, x+1]];
+                    let m2 = (1.0 - t) * magnitude[[y+1, x]] + t * magnitude[[y+1, x-1]];
+                    (m1, m2)
                 }
+            };
+
+            // Keep pixel only if it's a local maximum along gradient direction
+            if mag >= interp1 && mag >= interp2 {
+                suppressed[[y, x]] = mag;
             }
         }
     }
@@ -726,12 +737,12 @@ pub fn canny_edge_detection_float(
     let grad_x = mat_to_array_f64(&grad_x_mat)?;
     let grad_y = mat_to_array_f64(&grad_y_mat)?;
 
-    // Step 5: L1 gradient magnitude (|dx| + |dy|, matching OpenCV Canny default)
+    // Step 5: L2 gradient magnitude (hypot, matching MATLAB's edge('canny') default)
     let (height, width) = grad_x.dim();
     let mut magnitude = Array2::<f64>::zeros((height, width));
     for y in 0..height {
         for x in 0..width {
-            magnitude[[y, x]] = grad_x[[y, x]].abs() + grad_y[[y, x]].abs();
+            magnitude[[y, x]] = grad_x[[y, x]].hypot(grad_y[[y, x]]);
         }
     }
 

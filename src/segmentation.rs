@@ -174,8 +174,10 @@ fn compute_global_edge_map(
     };
 
     // Apply Canny edge detection ONCE globally (MATLAB line 38)
-    // Pass edge_sensitivity directly — auto-thresholding computes gradient percentiles
-    let sigma = 1.0;
+    // MATLAB's default Canny sigma is sqrt(2) ≈ 1.414. Our Gaussian+Sobel pipeline
+    // applies extra [1,2,1] smoothing from Sobel on top of the Gaussian, so we use
+    // sigma=sqrt(2) to approximate MATLAB's derivative-of-Gaussian(sqrt(2)).
+    let sigma = std::f64::consts::SQRT_2;
     let edges = canny_edge_detection_auto(&roi, params.edge_sensitivity, sigma)?;
 
     // Place edges back into full-sized image (MATLAB lines 44-45)
