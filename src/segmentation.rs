@@ -1,8 +1,8 @@
 use crate::config::{GridParams, SegmentationMethod};
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::image_processing::{
     canny_edge_detection_auto, compute_gradient_auto, gaussian_blur_auto,
-    normalize_image, threshold, morphological_opening_auto,
+    normalize_image, morphological_opening_auto,
     find_largest_connected_component_auto
 };
 use crate::types::{ImageData, Spot};
@@ -100,62 +100,68 @@ pub fn find_largest_connected_component(
     components.into_iter().max_by_key(|c| c.len()).unwrap_or_default()
 }
 
-/// Segment spot using edge-based method matching MATLAB's pg_seg_segment_by_edge
-fn segment_by_edge(
+/// Compute global edge map for all spots (MATLAB: pg_seg_segment_by_edge lines 8-45)
+/// This matches MATLAB's approach of computing edges once globally instead of per-spot
+///
+/// Coordinate convention (matching MATLAB):
+///   grid_x = row position (1st array dim, clamped to image.height)
+///   grid_y = col position (2nd array dim, clamped to image.width)
+///   Arrays indexed as [[row, col]] = [[x, y]]
+fn compute_global_edge_map(
     image: &ImageData,
-    spot: &Spot,
+    spots: &[Spot],
     params: &GridParams,
-) -> Result<Option<Circle>> {
+) -> Result<Array2<bool>> {
     let normalized = normalize_image(&image.data);
     let spot_pitch = params.spot_pitch;
 
-    // Default radius for fallback
-    let default_radius = 0.6 * spot_pitch / 2.0;
+    // Find global bounding box covering all spots (MATLAB lines 8-23)
+    // x = row dimension (height), y = col dimension (width)
+    let mut min_x = image.height as f64;
+    let mut min_y = image.width as f64;
+    let mut max_x: f64 = 0.0;
+    let mut max_y: f64 = 0.0;
 
-    // Get initial position
-    let cx = spot.grid_x;
-    let cy = spot.grid_y;
+    for spot in spots {
+        let x_lu = (spot.grid_x - spot_pitch).max(0.0);
+        let y_lu = (spot.grid_y - spot_pitch).max(0.0);
+        let x_rl = (spot.grid_x + spot_pitch).min((image.height - 1) as f64);
+        let y_rl = (spot.grid_y + spot_pitch).min((image.width - 1) as f64);
 
-    // Define ROI bounds (2× spot pitch window, matching MATLAB lines 8-17)
-    // Use .round() to ensure consistent rounding behavior with fractional coordinates
-    // This fixes the diagonal bias caused by truncation with non-integer spot_pitch (21.5)
-    let x_lu = (cx - spot_pitch).max(0.0).round() as usize;
-    let y_lu = (cy - spot_pitch).max(0.0).round() as usize;
-    let x_rl = (cx + spot_pitch).min((image.width - 1) as f64).round() as usize;
-    let y_rl = (cy + spot_pitch).min((image.height - 1) as f64).round() as usize;
-
-    eprintln!("ROI: cx={}, cy={}, image {}x{}, x_lu={}, x_rl={}, y_lu={}, y_rl={}",
-              cx, cy, image.width, image.height, x_lu, x_rl, y_lu, y_rl);
-
-    if x_rl <= x_lu || y_rl <= y_lu {
-        return Ok(None);
+        min_x = min_x.min(x_lu);
+        min_y = min_y.min(y_lu);
+        max_x = max_x.max(x_rl);
+        max_y = max_y.max(y_rl);
     }
 
-    // Extract and filter ROI (MATLAB lines 26-33)
-    let roi_width = x_rl - x_lu + 1;
-    let roi_height = y_rl - y_lu + 1;
+    // Round to get global ROI bounds (MATLAB lines 20-23)
+    let imx_lu = min_x.round() as usize;
+    let imy_lu = min_y.round() as usize;
+    let imx_rl = max_x.round() as usize;
+    let imy_rl = max_y.round() as usize;
 
-    // imageproc Canny has issues with very small images - need at least some padding
-    // For spot_pitch ~21, ROI is ~44x44, which works but may hit edge cases
-    // If too small, fall back to default
-    if roi_width < 10 || roi_height < 10 {
-        return Ok(Some(Circle {
-            x: cx,
-            y: cy,
-            radius: default_radius,
-        }));
+    if imx_rl <= imx_lu || imy_rl <= imy_lu {
+        return Ok(Array2::<bool>::default((image.height, image.width)));
     }
 
-    let mut roi = Array2::zeros((roi_height, roi_width));
+    // Extract global ROI (MATLAB line 26)
+    // ROI dimensions: rows = x range, cols = y range
+    let roi_rows = imx_rl - imx_lu + 1;
+    let roi_cols = imy_rl - imy_lu + 1;
+    let mut roi = Array2::zeros((roi_rows, roi_cols));
 
-    for y in 0..roi_height {
-        for x in 0..roi_width {
-            roi[[y, x]] = normalized[[y_lu + y, x_lu + x]];
+    for r in 0..roi_rows {
+        for c in 0..roi_cols {
+            roi[[r, c]] = normalized[[imx_lu + r, imy_lu + c]];
         }
     }
 
-    // Apply morphological opening (erosion then dilation) if needed (MATLAB lines 29-33)
-    // This removes small noise while preserving spot boundaries
+    tracing::debug!(
+        "Global ROI: x=[{},{}] y=[{},{}] = {}x{} pixels",
+        imx_lu, imx_rl, imy_lu, imy_rl, roi_rows, roi_cols
+    );
+
+    // Apply morphological opening (MATLAB lines 29-33)
     let roi = if params.small_disk * spot_pitch >= 1.0 {
         let filter_disk_radius = (params.small_disk * spot_pitch / 2.0).round() as usize;
         if filter_disk_radius > 0 {
@@ -167,23 +173,35 @@ fn segment_by_edge(
         roi
     };
 
-    // Phase 3: Use proper Canny edge detection matching MATLAB (line 38)
-    // MATLAB: J = edge(J, 'canny', params.segEdgeSensitivity);
+    // Apply Canny edge detection ONCE globally (MATLAB line 38)
     let low_threshold = params.edge_sensitivity[0];
     let high_threshold = params.edge_sensitivity[1];
-    let sigma = 1.0;  // MATLAB default for Canny
+    let sigma = 1.0;
 
-    // Apply Canny edge detection with hysteresis thresholding (OpenCV-accelerated)
     let edges = canny_edge_detection_auto(&roi, low_threshold, high_threshold, sigma)?;
 
-    // Create full-sized edge image like MATLAB (line 44-45)
-    // This avoids coordinate transformation issues
+    // Place edges back into full-sized image (MATLAB lines 44-45)
     let mut edge_map = Array2::<bool>::default((image.height, image.width));
-    for y in 0..roi_height {
-        for x in 0..roi_width {
-            edge_map[[y_lu + y, x_lu + x]] = edges[[y, x]];
+    for r in 0..roi_rows {
+        for c in 0..roi_cols {
+            edge_map[[imx_lu + r, imy_lu + c]] = edges[[r, c]];
         }
     }
+
+    Ok(edge_map)
+}
+
+/// Segment spot using global edge map (MATLAB-compatible approach)
+fn segment_by_edge_global(
+    image: &ImageData,
+    spot: &Spot,
+    params: &GridParams,
+    edge_map: &Array2<bool>,
+) -> Result<Option<Circle>> {
+    let spot_pitch = params.spot_pitch;
+    // Get initial position
+    let cx = spot.grid_x;
+    let cy = spot.grid_y;
 
     // Compute parameters for iteration (MATLAB lines 47-49)
     let pix_area_size = params.area_size * spot_pitch;
@@ -192,8 +210,10 @@ fn segment_by_edge(
 
     // Iterative refinement loop (MATLAB lines 60-140)
     let mut current_midpoint = (cx, cy);
-    let mut x_local = (x_lu as isize, x_lu as isize + 2 * spot_pitch_i);
-    let mut y_local = (y_lu as isize, y_lu as isize + 2 * spot_pitch_i);
+    let x_lu = (cx - spot_pitch).max(0.0).round() as isize;
+    let y_lu = (cy - spot_pitch).max(0.0).round() as isize;
+    let mut x_local = (x_lu, x_lu + 2 * spot_pitch_i);
+    let mut y_local = (y_lu, y_lu + 2 * spot_pitch_i);
 
     let max_iterations = 3;
     let mut spot_found = false;
@@ -201,16 +221,17 @@ fn segment_by_edge(
 
     for iteration in 0..max_iterations {
         // Clamp local coordinates to image bounds
-        x_local.0 = x_local.0.max(0).min(image.width as isize - 1);
-        x_local.1 = x_local.1.max(x_local.0 + 1).min(image.width as isize);
-        y_local.0 = y_local.0.max(0).min(image.height as isize - 1);
-        y_local.1 = y_local.1.max(y_local.0 + 1).min(image.height as isize);
+        // x = row → clamp to height; y = col → clamp to width
+        x_local.0 = x_local.0.max(0).min(image.height as isize - 1);
+        x_local.1 = x_local.1.max(x_local.0 + 1).min(image.height as isize);
+        y_local.0 = y_local.0.max(0).min(image.width as isize - 1);
+        y_local.1 = y_local.1.max(y_local.0 + 1).min(image.width as isize);
 
         // Define search window with offset (MATLAB lines 85-86)
-        let x_init_0 = (x_local.0 + pix_off).max(0).min(image.width as isize);
-        let x_init_1 = (x_local.1 - pix_off).max(x_init_0).min(image.width as isize);
-        let y_init_0 = (y_local.0 + pix_off).max(0).min(image.height as isize);
-        let y_init_1 = (y_local.1 - pix_off).max(y_init_0).min(image.height as isize);
+        let x_init_0 = (x_local.0 + pix_off).max(0).min(image.height as isize);
+        let x_init_1 = (x_local.1 - pix_off).max(x_init_0).min(image.height as isize);
+        let y_init_0 = (y_local.0 + pix_off).max(0).min(image.width as isize);
+        let y_init_1 = (y_local.1 - pix_off).max(y_init_0).min(image.width as isize);
 
         let x_init = (x_init_0, x_init_1);
         let y_init = (y_init_0, y_init_1);
@@ -219,21 +240,15 @@ fn segment_by_edge(
             break;
         }
 
-        // Extract local edge region
-        let _local_width = (x_init.1 - x_init.0) as usize;
-        let _local_height = (y_init.1 - y_init.0) as usize;
-
-        // Find connected components in edge map (MATLAB lines 88, 93-96)
-        // Extract Ilocal from full-sized edge image using absolute coordinates
+        // Find connected components in GLOBAL edge map (MATLAB lines 88, 93-96)
         let component = find_largest_connected_component_auto(
-            &edge_map,
+            edge_map,
             x_init.0 as usize,
             x_init.1 as usize,
             y_init.0 as usize,
             y_init.1 as usize,
         )?;
 
-        // Component pixels are already in image coordinates
         let edge_pixels: Vec<(f64, f64)> = component
             .into_iter()
             .map(|(x, y)| (x as f64, y as f64))
@@ -242,116 +257,51 @@ fn segment_by_edge(
         // Check minimum edge pixels (MATLAB line 102)
         if edge_pixels.len() >= params.min_edge_pixels {
             spot_found = true;
-
-            // Fit circle to edge pixels (MATLAB line 120)
-            if let Some(circle) = fit_circle_robust(&edge_pixels) {
-                // Calculate movement (MATLAB lines 125-127)
-                let dx = circle.x - current_midpoint.0;
-                let dy = circle.y - current_midpoint.1;
-                let delta = (dx * dx + dy * dy).sqrt();
-
-                tracing::debug!(
-                    "Iteration {}: delta={:.2}, center=({:.1}, {:.1}), edge_pixels={}",
-                    iteration, delta, circle.x, circle.y, edge_pixels.len()
-                );
-
-                current_midpoint = (circle.x, circle.y);
-                final_circle = Some(circle);
-
-                // Converged? (MATLAB line 71)
-                if delta <= 2.0_f64.sqrt() {
-                    tracing::debug!("Converged at iteration {}", iteration);
-                    break;
-                }
-
-                // Shift window for next iteration (MATLAB lines 131-139)
-                x_local.0 = (x_local.0 as f64 + dx).round() as isize;
-                x_local.1 = (x_local.1 as f64 + dx).round() as isize;
-                y_local.0 = (y_local.0 as f64 + dy).round() as isize;
-                y_local.1 = (y_local.1 as f64 + dy).round() as isize;
-            } else {
-                spot_found = false;
-                break;
-            }
         } else {
             spot_found = false;
             break;
         }
+
+        // Fit circle to edge pixels (MATLAB line 120)
+        let circle = match fit_circle_robust(&edge_pixels) {
+            Some(c) => c,
+            None => break,
+        };
+
+        // Calculate convergence (MATLAB lines 125-127)
+        let delta = ((circle.x - current_midpoint.0).powi(2)
+                   + (circle.y - current_midpoint.1).powi(2)).sqrt();
+
+        tracing::debug!(
+            "Iteration {}: delta={:.2}, center=({:.1}, {:.1}), edge_pixels={}",
+            iteration, delta, circle.x, circle.y, edge_pixels.len()
+        );
+
+        current_midpoint = (circle.x, circle.y);
+        final_circle = Some(circle);
+
+        if delta <= 2.0_f64.sqrt() {
+            tracing::debug!("Converged at iteration {}", iteration);
+            break;
+        }
+
+        // Shift search window for next iteration (MATLAB lines 131-139)
+        let mp_offset_x = (circle.x - current_midpoint.0).round() as isize;
+        let mp_offset_y = (circle.y - current_midpoint.1).round() as isize;
+
+        x_local.0 = (x_local.0 + mp_offset_x).max(0);
+        x_local.1 = (x_local.1 + mp_offset_x).max(x_local.0 + 1);
+        y_local.0 = (y_local.0 + mp_offset_y).max(0);
+        y_local.1 = (y_local.1 + mp_offset_y).max(y_local.0 + 1);
     }
 
     // Return result (MATLAB lines 143-152)
     if spot_found {
         Ok(final_circle)
     } else {
-        // Use default radius for empty spots
-        Ok(Some(Circle {
-            x: cx,
-            y: cy,
-            radius: default_radius,
-        }))
+        // Segmentation failed - return None to indicate not found
+        Ok(None)
     }
-}
-
-/// Old placeholder gradient-based method (deprecated)
-fn segment_by_edge_old(
-    image: &ImageData,
-    spot: &Spot,
-    params: &GridParams,
-) -> Result<Option<Circle>> {
-    let normalized = normalize_image(&image.data);
-
-    // Extract region around spot
-    let search_radius = params.spot_pitch;
-    let x_start = (spot.grid_x - search_radius).max(0.0) as usize;
-    let x_end = (spot.grid_x + search_radius)
-        .min(image.width as f64 - 1.0) as usize;
-    let y_start = (spot.grid_y - search_radius).max(0.0) as usize;
-    let y_end = (spot.grid_y + search_radius)
-        .min(image.height as f64 - 1.0) as usize;
-
-    if x_end <= x_start || y_end <= y_start {
-        return Ok(None);
-    }
-
-    let region_height = y_end - y_start + 1;
-    let region_width = x_end - x_start + 1;
-
-    let mut region = Array2::zeros((region_height, region_width));
-    for y in y_start..=y_end {
-        for x in x_start..=x_end {
-            region[[y - y_start, x - x_start]] = normalized[[y, x]];
-        }
-    }
-
-    // Apply Gaussian smoothing (OpenCV-accelerated)
-    let smoothed = gaussian_blur_auto(&region, 1.0)?;
-
-    // Compute gradient (OpenCV-accelerated)
-    let gradient = compute_gradient_auto(&smoothed)?;
-
-    // Threshold edges
-    let edge_threshold = params.edge_sensitivity[1];
-    let edges = threshold(&gradient, edge_threshold);
-
-    // Find edge points
-    let mut edge_points = Vec::new();
-    for y in 0..region_height {
-        for x in 0..region_width {
-            if edges[[y, x]] {
-                edge_points.push((
-                    x as f64 + x_start as f64,
-                    y as f64 + y_start as f64,
-                ));
-            }
-        }
-    }
-
-    if edge_points.is_empty() {
-        return Ok(None);
-    }
-
-    // Fit circle to edge points
-    Ok(fit_circle_robust(&edge_points))
 }
 
 /// Segment spot using Hough transform
@@ -362,25 +312,26 @@ fn segment_by_hough(
 ) -> Result<Option<Circle>> {
     let normalized = normalize_image(&image.data);
 
+    // x = row → clamp to height; y = col → clamp to width
     let search_radius = params.spot_pitch;
     let x_start = (spot.grid_x - search_radius).max(0.0) as usize;
     let x_end = (spot.grid_x + search_radius)
-        .min(image.width as f64 - 1.0) as usize;
+        .min((image.height - 1) as f64) as usize;
     let y_start = (spot.grid_y - search_radius).max(0.0) as usize;
     let y_end = (spot.grid_y + search_radius)
-        .min(image.height as f64 - 1.0) as usize;
+        .min((image.width - 1) as f64) as usize;
 
     if x_end <= x_start || y_end <= y_start {
         return Ok(None);
     }
 
-    let region_height = y_end - y_start + 1;
-    let region_width = x_end - x_start + 1;
+    let row_count = x_end - x_start + 1;
+    let col_count = y_end - y_start + 1;
 
-    let mut region = Array2::zeros((region_height, region_width));
-    for y in y_start..=y_end {
-        for x in x_start..=x_end {
-            region[[y - y_start, x - x_start]] = normalized[[y, x]];
+    let mut region = Array2::zeros((row_count, col_count));
+    for r in x_start..=x_end {
+        for c in y_start..=y_end {
+            region[[r - x_start, c - y_start]] = normalized[[r, c]];
         }
     }
 
@@ -396,6 +347,7 @@ fn segment_by_hough(
 
     if let Some(mut c) = circle {
         // Adjust coordinates back to image space
+        // c.x = row offset, c.y = col offset (from hough_circles)
         c.x += x_start as f64;
         c.y += y_start as f64;
         Ok(Some(c))
@@ -456,8 +408,10 @@ fn hough_circles(
     }
 
     // Estimate radius from gradient at detected center
-    let cx = max_pos.1 as f64;
-    let cy = max_pos.0 as f64;
+    // max_pos = (first_dim, second_dim) = (row, col)
+    // Circle.x = row position, Circle.y = col position
+    let cx = max_pos.0 as f64;  // row = x
+    let cy = max_pos.1 as f64;  // col = y
     let radius = ((min_radius + max_radius) / 2) as f64;
 
     Ok(Some(Circle {
@@ -475,9 +429,19 @@ pub fn segment_spots(
 ) -> Result<()> {
     tracing::debug!("Segmenting {} spots using method: {:?}", spots.len(), params.segmentation_method);
 
+    // MATLAB approach: compute global edge map once for all spots (lines 8-45)
+    let global_edge_map = if params.segmentation_method == SegmentationMethod::Edge {
+        Some(compute_global_edge_map(image, spots, params)?)
+    } else {
+        None
+    };
+
     for spot in spots.iter_mut() {
         let circle_result = match params.segmentation_method {
-            SegmentationMethod::Edge => segment_by_edge(image, spot, params),
+            SegmentationMethod::Edge => {
+                // Use global edge map (MATLAB-compatible)
+                segment_by_edge_global(image, spot, params, global_edge_map.as_ref().unwrap())
+            }
             SegmentationMethod::Hough => segment_by_hough(image, spot, params),
             SegmentationMethod::Advanced => {
                 // Use advanced Hough with adaptive thresholding
@@ -501,10 +465,10 @@ pub fn segment_spots(
                 // Check diameter bounds (MATLAB: sqcMinDiameter, sqcMaxDiameter)
                 // Diameter is relative to spot_pitch
                 let relative_diameter = spot.diameter / params.spot_pitch;
+                let mut is_bad = false;
+
                 if relative_diameter < params.min_diameter || relative_diameter > params.max_diameter {
-                    spot.is_bad = true;
-                } else {
-                    spot.is_bad = false;
+                    is_bad = true;
                 }
 
                 // Check position offset (MATLAB: pg_seg_check_segmentation.m:18)
@@ -524,73 +488,55 @@ pub fn segment_spots(
                         "Spot {} moved too far: offset={:.2} > max={:.2} (ref={})",
                         spot.id, offset, max_offset, spot.is_reference
                     );
+                    is_bad = true;
+                }
+
+                // MATLAB bypass: if spot didn't move from initial position, always mark as OK
+                // (pg_seg_check_segmentation.m line 19: || all(mp1 == mp0))
+                let spot_didnt_move = (spot.grid_x - spot.initial_x).abs() < 1e-6
+                                    && (spot.grid_y - spot.initial_y).abs() < 1e-6;
+                if spot_didnt_move {
+                    is_bad = false;
+                }
+
+                // If bad, reset to default (MATLAB: pg_seg_set_as_dft_spot, line 124)
+                if is_bad {
+                    const DEFAULT_RADIUS_FACTOR: f64 = 0.6;
+                    spot.diameter = DEFAULT_RADIUS_FACTOR * params.spot_pitch;
+                    spot.grid_x = spot.initial_x;
+                    spot.grid_y = spot.initial_y;
                     spot.is_bad = true;
+                    spot.is_empty = false;
+                    spot.is_found = false;
+                } else {
+                    spot.is_bad = false;
+                    spot.is_empty = false;
                 }
             }
             Ok(None) | Err(_) => {
                 // Segmentation failed - not found
-                // Use default diameter (MATLAB: pg_seg_segment_by_edge.m:148-149)
+                // MATLAB: pg_seg_check_segmentation returns flag=2 (empty) when isFound==0
+                // MATLAB: pg_seg_set_as_dft_spot resets position to initialMidpoint (line 18)
                 const DEFAULT_RADIUS_FACTOR: f64 = 0.6;
                 spot.diameter = DEFAULT_RADIUS_FACTOR * params.spot_pitch;
 
+                // Reset position to initial (MATLAB: finalMidpoint = initialMidpoint)
+                spot.grid_x = spot.initial_x;
+                spot.grid_y = spot.initial_y;
+
                 spot.is_found = false;
                 spot.is_bad = false;  // Not bad, just not found
-                spot.is_empty = true; // Mark as empty instead
+                spot.is_empty = true; // Mark as empty (MATLAB flag=2)
 
                 tracing::debug!(
-                    "Spot {} not found, using default diameter={:.1}px",
-                    spot.id, spot.diameter
+                    "Spot {} not found, using default diameter={:.1}px at initial position ({:.1}, {:.1})",
+                    spot.id, spot.diameter, spot.grid_x, spot.grid_y
                 );
             }
         }
-
-        // Check if spot is empty (low intensity)
-        spot.is_empty = check_if_empty(image, spot, params);
     }
 
     Ok(())
-}
-
-/// Check if spot is empty based on intensity
-fn check_if_empty(image: &ImageData, spot: &Spot, params: &GridParams) -> bool {
-    if spot.is_bad {
-        return true;
-    }
-
-    let normalized = normalize_image(&image.data);
-
-    let radius = spot.diameter / 2.0;
-    let x = spot.grid_x as usize;
-    let y = spot.grid_y as usize;
-
-    // Sample intensity within spot
-    let mut sum = 0.0;
-    let mut count = 0;
-
-    let x_start = (x.saturating_sub(radius as usize)).max(0);
-    let x_end = ((x + radius as usize + 1).min(image.width));
-    let y_start = (y.saturating_sub(radius as usize)).max(0);
-    let y_end = ((y + radius as usize + 1).min(image.height));
-
-    for yi in y_start..y_end {
-        for xi in x_start..x_end {
-            let dx = xi as f64 - spot.grid_x;
-            let dy = yi as f64 - spot.grid_y;
-            if (dx * dx + dy * dy).sqrt() <= radius {
-                sum += normalized[[yi, xi]];
-                count += 1;
-            }
-        }
-    }
-
-    if count == 0 {
-        return true;
-    }
-
-    let mean_intensity = sum / count as f64;
-
-    // Spot is empty if mean intensity is below threshold
-    mean_intensity < 0.1
 }
 
 /// Fit circle to points using weighted least squares
