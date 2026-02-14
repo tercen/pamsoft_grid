@@ -130,7 +130,7 @@ fn benchmark_canny_edge_detection() {
     // Benchmark OpenCV
     let start = Instant::now();
     for _ in 0..iterations {
-        let _ = canny_edge_detection_auto(&image, low_threshold, high_threshold, sigma).unwrap();
+        let _ = canny_edge_detection_auto(&image, [low_threshold, high_threshold], sigma).unwrap();
     }
     let opencv_time = start.elapsed();
     let opencv_avg = opencv_time.as_micros() / iterations;
@@ -179,7 +179,7 @@ fn benchmark_full_pipeline() {
     for _ in 0..iterations {
         let smoothed = gaussian_blur_auto(&image, 1.0).unwrap();
         let gradient = compute_gradient_auto(&smoothed).unwrap();
-        let _ = canny_edge_detection_auto(&image, 0.1, 0.3, 1.0).unwrap();
+        let _ = canny_edge_detection_auto(&image, [0.1, 0.3], 1.0).unwrap();
     }
     let opencv_time = start.elapsed();
     let opencv_avg = opencv_time.as_micros() / iterations;
