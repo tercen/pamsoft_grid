@@ -268,7 +268,9 @@ fn segment_by_edge_global(
             None => break,
         };
 
-        // Calculate convergence (MATLAB lines 125-127)
+        // Calculate convergence and offset BEFORE updating midpoint (MATLAB lines 125-131)
+        let mp_offset_x = (circle.x - current_midpoint.0).round() as isize;
+        let mp_offset_y = (circle.y - current_midpoint.1).round() as isize;
         let delta = ((circle.x - current_midpoint.0).powi(2)
                    + (circle.y - current_midpoint.1).powi(2)).sqrt();
 
@@ -277,6 +279,7 @@ fn segment_by_edge_global(
             iteration, delta, circle.x, circle.y, edge_pixels.len()
         );
 
+        // NOW update midpoint
         current_midpoint = (circle.x, circle.y);
         final_circle = Some(circle);
 
@@ -286,9 +289,6 @@ fn segment_by_edge_global(
         }
 
         // Shift search window for next iteration (MATLAB lines 131-139)
-        let mp_offset_x = (circle.x - current_midpoint.0).round() as isize;
-        let mp_offset_y = (circle.y - current_midpoint.1).round() as isize;
-
         x_local.0 = (x_local.0 + mp_offset_x).max(0);
         x_local.1 = (x_local.1 + mp_offset_x).max(x_local.0 + 1);
         y_local.0 = (y_local.0 + mp_offset_y).max(0);
