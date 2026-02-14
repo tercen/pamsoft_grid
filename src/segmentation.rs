@@ -5,6 +5,7 @@ use crate::image_processing::{
     normalize_image, morphological_opening_auto,
     find_largest_connected_component_auto
 };
+use crate::quantification::compute_spot_snr;
 use crate::types::{ImageData, Spot};
 use ndarray::Array2;
 use std::f64::consts::PI;
@@ -947,6 +948,30 @@ pub fn segment_spots(
             }
             _ => {}
         }
+    }
+
+    // Post-segmentation SNR check (matching MATLAB pg_qnt_check_quantification.m)
+    // Mark good spots as empty if their SNR is below threshold
+    let bg_offset_px = params.bg_offset * working_params.spot_pitch;
+    let mut snr_rejected = 0usize;
+    for spot in spots.iter_mut() {
+        if !spot.is_bad && !spot.is_empty && spot.is_found {
+            let snr = compute_spot_snr(
+                image,
+                spot.grid_x,
+                spot.grid_y,
+                spot.diameter / 2.0,
+                bg_offset_px,
+            );
+            if snr < params.min_snr {
+                set_as_default_spot(spot, working_params.spot_pitch);
+                spot.is_empty = true;
+                snr_rejected += 1;
+            }
+        }
+    }
+    if snr_rejected > 0 {
+        tracing::info!("SNR check: rejected {} spots (threshold={})", snr_rejected, params.min_snr);
     }
 
     Ok(())

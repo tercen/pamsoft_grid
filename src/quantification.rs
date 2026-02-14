@@ -47,6 +47,77 @@ fn quantify_single_spot(
     }
 }
 
+/// Compute SNR for a single spot (matching MATLAB pg_qnt_check_quantification.m)
+///
+/// Signal: filled circle at (center_x, center_y) with given radius.
+/// Background: square annulus — square of side 2*bg_offset_px centered on spot,
+///             minus a circle of radius bg_offset_px.
+/// SNR = (mean_signal - mean_background) / sqrt(std_signal² + std_background²)
+pub fn compute_spot_snr(
+    image: &ImageData,
+    center_x: f64, // row
+    center_y: f64, // col
+    radius: f64,
+    bg_offset_px: f64, // bg_offset * spot_pitch
+) -> f64 {
+    let normalized = normalize_image(&image.data);
+    let (nrows, ncols) = normalized.dim();
+
+    // Signal pixels: filled circle
+    let mut sig_vals = Vec::new();
+    let r_start = (center_x - radius).floor().max(0.0) as usize;
+    let r_end = ((center_x + radius).ceil() as usize).min(nrows);
+    let c_start = (center_y - radius).floor().max(0.0) as usize;
+    let c_end = ((center_y + radius).ceil() as usize).min(ncols);
+
+    for r in r_start..r_end {
+        for c in c_start..c_end {
+            let dr = r as f64 - center_x;
+            let dc = c as f64 - center_y;
+            if (dr * dr + dc * dc).sqrt() <= radius {
+                sig_vals.push(normalized[[r, c]]);
+            }
+        }
+    }
+
+    // Background pixels: square annulus
+    let mut bg_vals = Vec::new();
+    let sq_r_start = (center_x - bg_offset_px).floor().max(0.0) as usize;
+    let sq_r_end = ((center_x + bg_offset_px).ceil() as usize).min(nrows);
+    let sq_c_start = (center_y - bg_offset_px).floor().max(0.0) as usize;
+    let sq_c_end = ((center_y + bg_offset_px).ceil() as usize).min(ncols);
+
+    for r in sq_r_start..sq_r_end {
+        for c in sq_c_start..sq_c_end {
+            let dr = r as f64 - center_x;
+            let dc = c as f64 - center_y;
+            // Inside square but outside inner circle
+            if (dr * dr + dc * dc).sqrt() > bg_offset_px {
+                bg_vals.push(normalized[[r, c]]);
+            }
+        }
+    }
+
+    if sig_vals.is_empty() || bg_vals.is_empty() {
+        return 0.0;
+    }
+
+    let mean_sig = sig_vals.iter().sum::<f64>() / sig_vals.len() as f64;
+    let mean_bg = bg_vals.iter().sum::<f64>() / bg_vals.len() as f64;
+
+    let var_sig = sig_vals.iter().map(|&v| (v - mean_sig).powi(2)).sum::<f64>()
+        / sig_vals.len() as f64;
+    let var_bg = bg_vals.iter().map(|&v| (v - mean_bg).powi(2)).sum::<f64>()
+        / bg_vals.len() as f64;
+
+    let denom = (var_sig + var_bg).sqrt();
+    if denom < 1e-15 {
+        return 0.0;
+    }
+
+    (mean_sig - mean_bg) / denom
+}
+
 /// Compute spot intensity statistics
 pub fn compute_spot_statistics(
     image: &ImageData,
