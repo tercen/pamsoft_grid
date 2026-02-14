@@ -702,19 +702,22 @@ pub(crate) fn fit_circle_robust(points: &[(f64, f64)]) -> Option<Circle> {
     let mut weights = vec![1.0; points.len()];
     let mut circle = fit_circle_weighted(points, &weights)?;
 
-    let mut chi_sqr = calculate_chi_square(points, &circle, &weights);
+    // Calculate algebraic residuals: (dist² - r²)² matching MATLAB pg_seg_rob_circ_fit.m line 11
+    let mut chi_sqr = algebraic_residual_sum(points, &circle);
 
     // Iterative refinement with robust weighting
     for _ in 0..max_iter {
         let old_chi_sqr = chi_sqr;
 
-        // Calculate residuals
+        // Calculate algebraic residuals: ((x-x0)^2 + (y-y0)^2 - r^2)^2
+        // MATLAB: res = ((x-x0).^2 + (y-y0).^2 - r^2).^2
         let residuals: Vec<f64> = points.iter().map(|(x, y)| {
             let dx = x - circle.x;
             let dy = y - circle.y;
-            let dist = (dx * dx + dy * dy).sqrt();
-            let res = dist - circle.radius;
-            res * res  // Squared residual
+            let dist_sq = dx * dx + dy * dy;
+            let r_sq = circle.radius * circle.radius;
+            let alg_res = dist_sq - r_sq;
+            alg_res * alg_res  // (dist² - r²)²
         }).collect();
 
         // Calculate Tukey weights
@@ -722,10 +725,12 @@ pub(crate) fn fit_circle_robust(points: &[(f64, f64)]) -> Option<Circle> {
 
         // Refit with new weights
         circle = fit_circle_weighted(points, &weights)?;
-        chi_sqr = calculate_chi_square(points, &circle, &weights);
+
+        // MATLAB: ChiSqr = sum(res) — unweighted sum of algebraic residuals
+        chi_sqr = algebraic_residual_sum(points, &circle);
 
         // Check convergence
-        if (chi_sqr - old_chi_sqr).abs() / chi_sqr <= eps {
+        if chi_sqr > 0.0 && (chi_sqr - old_chi_sqr).abs() / chi_sqr <= eps {
             break;
         }
     }
@@ -733,17 +738,17 @@ pub(crate) fn fit_circle_robust(points: &[(f64, f64)]) -> Option<Circle> {
     Some(circle)
 }
 
-/// Calculate chi-square goodness of fit
-fn calculate_chi_square(points: &[(f64, f64)], circle: &Circle, weights: &[f64]) -> f64 {
-    let mut chi_sqr = 0.0;
-    for (i, (x, y)) in points.iter().enumerate() {
+/// Calculate unweighted sum of algebraic residuals: sum((dist² - r²)²)
+/// Matches MATLAB's pg_seg_rob_circ_fit.m lines 11-12: ChiSqr = sum(res)
+fn algebraic_residual_sum(points: &[(f64, f64)], circle: &Circle) -> f64 {
+    let r_sq = circle.radius * circle.radius;
+    points.iter().map(|(x, y)| {
         let dx = x - circle.x;
         let dy = y - circle.y;
-        let dist = (dx * dx + dy * dy).sqrt();
-        let res = dist - circle.radius;
-        chi_sqr += weights[i] * res * res;
-    }
-    chi_sqr / (points.len() as f64 - 3.0).max(1.0)
+        let dist_sq = dx * dx + dy * dy;
+        let alg_res = dist_sq - r_sq;
+        alg_res * alg_res
+    }).sum()
 }
 
 #[cfg(test)]
