@@ -550,7 +550,9 @@ fn trace_edge(
                     let nx = nx as usize;
 
                     // Follow weak edges connected to strong edges
-                    if !visited[[ny, nx]] && magnitude[[ny, nx]] >= low_threshold {
+                    // Use strict > to match MATLAB's cannyFindLocalMaxima (mag > lowThresh).
+                    // Critical when lowThresh=0: avoids flooding through NMS-suppressed zero pixels.
+                    if !visited[[ny, nx]] && magnitude[[ny, nx]] > low_threshold {
                         stack.push((ny, nx));
                     }
                 }
@@ -788,16 +790,14 @@ pub fn canny_edge_detection_float(
     }
 
     // Step 6: Compute MATLAB-compatible thresholds: sensitivity * max(mag)
+    // MATLAB edge.m normalizes magnitude to [0,1] then uses thresh directly.
+    // With thresh=[0, 0.01]: lowThresh=0, highThresh=0.01 (relative to max).
     let max_mag = magnitude.iter().cloned().fold(0.0_f64, f64::max);
     if max_mag < 1e-10 {
         return Ok(Array2::default(image.dim()));
     }
     let high_threshold = sensitivity[1] * max_mag;
-    let low_threshold = if sensitivity[0] > 0.0 {
-        sensitivity[0] * max_mag
-    } else {
-        0.4 * high_threshold
-    };
+    let low_threshold = sensitivity[0] * max_mag;
 
     // Step 7: Non-maximum suppression matching OpenCV (f64 precision)
     let direction = Array2::<f64>::zeros((height, width)); // unused, NMS uses grad_x/grad_y directly
@@ -891,16 +891,14 @@ pub fn canny_edge_detection_dog(
     }
 
     // MATLAB-compatible thresholds: sensitivity * max(mag)
+    // MATLAB edge.m normalizes magnitude to [0,1] then uses thresh directly.
+    // With thresh=[0, 0.01]: lowThresh=0, highThresh=0.01 (relative to max).
     let max_mag = magnitude.iter().cloned().fold(0.0_f64, f64::max);
     if max_mag < 1e-10 {
         return Ok(Array2::default(image.dim()));
     }
     let high_threshold = sensitivity[1] * max_mag;
-    let low_threshold = if sensitivity[0] > 0.0 {
-        sensitivity[0] * max_mag
-    } else {
-        0.4 * high_threshold
-    };
+    let low_threshold = sensitivity[0] * max_mag;
 
     // Non-maximum suppression (interpolated, matching MATLAB)
     let direction = Array2::<f64>::zeros((height, width));
@@ -983,7 +981,7 @@ pub fn canny_edge_detection_opencv(
             (0.0, 1.0)
         } else {
             let high = sensitivity[1] * max_mag;
-            let low = if sensitivity[0] > 0.0 { sensitivity[0] * max_mag } else { 0.4 * high };
+            let low = sensitivity[0] * max_mag;
             (low, high)
         }
     };
