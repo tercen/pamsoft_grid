@@ -43,7 +43,11 @@ fn rotate_point(x: f64, y: f64, angle_deg: f64) -> (f64, f64) {
     (x_rot, y_rot)
 }
 
-/// Calculate grid coordinates matching MATLAB's pg_grid_coordinates
+/// Calculate grid coordinates for template matching MATLAB's pg_grid_coordinates
+///
+/// Regular and reference spots use separate midpoint calculations,
+/// matching how `generate_grid_coordinates` processes them.
+/// midpoint = (rows_center, cols_center) of the template image.
 fn calculate_grid_coordinates(
     rows: &[i32],
     cols: &[i32],
@@ -60,7 +64,8 @@ fn calculate_grid_coordinates(
         return coords;
     }
 
-    // Calculate grid midpoint using ONLY regular spots (positive row/col)
+    // Calculate midpoints separately for regular and reference groups
+    // (matching generate_grid_coordinates behavior)
     let regular_rows: Vec<f64> = rows.iter().zip(is_reference.iter())
         .filter(|(r, is_ref)| **r > 0 && !**is_ref)
         .map(|(r, _)| *r as f64)
@@ -70,31 +75,55 @@ fn calculate_grid_coordinates(
         .map(|(c, _)| *c as f64)
         .collect();
 
-    let row_min = regular_rows.iter().cloned().fold(f64::INFINITY, f64::min);
-    let row_max = regular_rows.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let col_min = regular_cols.iter().cloned().fold(f64::INFINITY, f64::min);
-    let col_max = regular_cols.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let reg_row_mid = {
+        let mn = regular_rows.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mx = regular_rows.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        mn + (mx - mn) / 2.0
+    };
+    let reg_col_mid = {
+        let mn = regular_cols.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mx = regular_cols.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        mn + (mx - mn) / 2.0
+    };
 
-    let row_midpoint = row_min + (row_max - row_min) / 2.0;
-    let col_midpoint = col_min + (col_max - col_min) / 2.0;
+    // Reference spots: collect abs values of non-regular spots
+    let ref_rows: Vec<f64> = rows.iter().zip(cols.iter()).zip(is_reference.iter())
+        .filter(|((r, c), _)| !(**r > 0 && **c > 0) || false) // non-regular or is_ref
+        .map(|((r, _), _)| r.abs() as f64)
+        .collect();
+    let ref_cols: Vec<f64> = rows.iter().zip(cols.iter()).zip(is_reference.iter())
+        .filter(|((r, c), _)| !(**r > 0 && **c > 0) || false)
+        .map(|((_, c), _)| c.abs() as f64)
+        .collect();
+
+    let ref_row_mid = if !ref_rows.is_empty() {
+        let mn = ref_rows.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mx = ref_rows.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        mn + (mx - mn) / 2.0
+    } else { 0.0 };
+    let ref_col_mid = if !ref_cols.is_empty() {
+        let mn = ref_cols.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mx = ref_cols.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        mn + (mx - mn) / 2.0
+    } else { 0.0 };
 
     for i in 0..rows.len() {
-        if !is_reference[i] {
-            continue; // Only process reference spots in template
-        }
+        let is_regular = rows[i] > 0 && cols[i] > 0 && !is_reference[i];
 
-        // MATLAB line 40-41: row = abs(row); col = abs(col);
-        let row = rows[i].abs() as f64;
-        let col = cols[i].abs() as f64;
+        let (row, col, rmp, cmp) = if is_regular {
+            (rows[i] as f64, cols[i] as f64, reg_row_mid, reg_col_mid)
+        } else {
+            (rows[i].abs() as f64, cols[i].abs() as f64, ref_row_mid, ref_col_mid)
+        };
 
-        // MATLAB line 47-48: x = spotPitch(1)*(row-rmp) + spotPitch(1) * x0;
-        let x = spot_pitch * (row - row_midpoint) + spot_pitch * x_offsets[i];
-        let y = spot_pitch * (col - col_midpoint) + spot_pitch * y_offsets[i];
+        let x = spot_pitch * (row - rmp) + spot_pitch * x_offsets[i];
+        let y = spot_pitch * (col - cmp) + spot_pitch * y_offsets[i];
 
-        // MATLAB line 51-56: rotate the grid
         let (x_rot, y_rot) = rotate_point(x, y, rotation);
 
-        // MATLAB line 59-60: x = mp(1) + x + 1; (we're 0-based, so no +1)
+        // midpoint.0 = rows_center, midpoint.1 = cols_center
+        // x = row offset → add to rows_center
+        // y = col offset → add to cols_center
         coords.push((
             midpoint.0 + x_rot,
             midpoint.1 + y_rot,
@@ -120,10 +149,13 @@ fn make_template(
     let mut template = Array2::zeros((height, width));
 
     // Calculate image midpoint (matching MATLAB: mp = round(0.5 * imageSize))
-    let midpoint = ((width as f64 / 2.0).round(), (height as f64 / 2.0).round());
+    // MATLAB: imageSize = [height, width], mp(1) = rows/2, mp(2) = cols/2
+    let midpoint = ((height as f64 / 2.0).round(), (width as f64 / 2.0).round());
 
     // Create disk coordinates (matching MATLAB: r = round(grdSpotSize/2))
-    let radius = (spot_size / 2.0).round() as usize;
+    // grdSpotSize is in pixels: spot_size * spot_pitch (e.g. 0.66 * 21.5 = 14.19)
+    let spot_size_px = spot_size * spot_pitch;
+    let radius = (spot_size_px / 2.0).round() as usize;
     let disk_coords = create_disk_coordinates(radius);
 
     // Get grid coordinates for reference spots only
@@ -139,13 +171,14 @@ fn make_template(
     );
 
     // Place spots in template (matching MATLAB template filling)
+    // After midpoint fix: spot_x = row position, spot_y = column position
     for (spot_x, spot_y) in spot_positions {
         for (dx, dy) in &disk_coords {
-            let x = spot_x.round() as i32 + dx;
-            let y = spot_y.round() as i32 + dy;
+            let row = spot_x.round() as i32 + dx;
+            let col = spot_y.round() as i32 + dy;
 
-            if x >= 0 && x < width as i32 && y >= 0 && y < height as i32 {
-                template[[y as usize, x as usize]] = 1.0;
+            if row >= 0 && row < height as i32 && col >= 0 && col < width as i32 {
+                template[[row as usize, col as usize]] = 1.0;
             }
         }
     }
@@ -286,6 +319,9 @@ fn template_correlation(
 }
 
 /// Find grid center using FFT-based template matching (matching MATLAB's pg_grid_find)
+///
+/// Runs FFT template correlation at original resolution to find the grid center.
+/// The template includes both regular and reference spots with correct midpoints.
 pub fn find_grid_center(
     image: &ImageData,
     layout: &[(String, bool, i32, i32)],
@@ -297,7 +333,7 @@ pub fn find_grid_center(
     let mut rows = Vec::new();
     let mut cols = Vec::new();
     let mut is_reference = Vec::new();
-    let x_offsets = vec![0.0; layout.len()]; // Default to no offsets
+    let x_offsets = vec![0.0; layout.len()];
     let y_offsets = vec![0.0; layout.len()];
 
     for (_, is_ref, row, col) in layout {
@@ -306,10 +342,6 @@ pub fn find_grid_center(
         is_reference.push(*is_ref);
     }
 
-    let mut best_score = f64::NEG_INFINITY;
-    let mut best_center = (0.0, 0.0);
-    let mut best_rotation = 0.0;
-
     // Try different rotations
     let rotations = if params.rotation_range.is_empty() {
         vec![0.0]
@@ -317,8 +349,10 @@ pub fn find_grid_center(
         params.rotation_range.clone()
     };
 
+    // Collect all (rotation, center_row, center_col, score)
+    let mut rotation_results: Vec<(f64, f64, f64, f64)> = Vec::new();
+
     for &rotation in &rotations {
-        // Create template for this rotation
         let template = make_template(
             (image.height, image.width),
             &rows,
@@ -331,18 +365,42 @@ pub fn find_grid_center(
             rotation,
         )?;
 
-        // Perform correlation
         let (cx, cy, score) = template_correlation(&normalized, &template)?;
-
-        if score > best_score {
-            best_score = score;
-            best_center = (cx, cy);
-            best_rotation = rotation;
-        }
+        // template_correlation returns (col, row) but we need (grid_x, grid_y) = (row, col)
+        rotation_results.push((rotation, cy, cx, score)); // (rotation, row, col, score)
     }
 
-    // Apply MATLAB's -2 adjustment (from pg_grid_find.m lines 124-125: cx = cx-2; cy = cy-2)
-    Ok((best_center.0 - 2.0, best_center.1 - 2.0, best_rotation))
+    // Select best rotation: prefer smaller |angle| when scores are within noise margin.
+    // For dot-grid templates, small rotations barely change correlation, so the score
+    // landscape is nearly flat. Picking the absolute max overfits to noise.
+    // Strategy: find peak score, then among rotations within 1% of peak, pick smallest |angle|.
+    let peak_score = rotation_results.iter().map(|r| r.3).fold(f64::NEG_INFINITY, f64::max);
+    let score_threshold = peak_score * 0.99; // 1% margin
+
+    let (best_rotation, best_center) = rotation_results.iter()
+        .filter(|(_, _, _, score)| *score >= score_threshold)
+        .min_by(|a, b| a.0.abs().partial_cmp(&b.0.abs()).unwrap())
+        .map(|(rot, row, col, _)| (*rot, (*row, *col)))
+        .unwrap_or((0.0, (0.0, 0.0)));
+
+    let best_score = rotation_results.iter()
+        .find(|(rot, _, _, _)| *rot == best_rotation)
+        .map(|(_, _, _, s)| *s)
+        .unwrap_or(0.0);
+
+    let center_x = best_center.0;
+    let center_y = best_center.1;
+
+    // Clamp to original image bounds
+    let center_x = center_x.max(0.0).min((image.height - 1) as f64);
+    let center_y = center_y.max(0.0).min((image.width - 1) as f64);
+
+    tracing::info!(
+        "Grid center: grid_x={:.1} (row), grid_y={:.1} (col), rotation={:.2}°, score={:.2}",
+        center_x, center_y, best_rotation, best_score
+    );
+
+    Ok((center_x, center_y, best_rotation))
 }
 
 /// Generate grid coordinates from center and layout (matching MATLAB's pg_grid_coordinates)
@@ -529,23 +587,24 @@ pub fn refine_grid_positions(
         }
 
         // Search in local neighborhood
+        // grid_x = row position, grid_y = column position
         let search_radius = params.spot_pitch * 0.3;
 
-        let x_start = (spot.grid_x - search_radius).max(0.0) as usize;
-        let x_end = (spot.grid_x + search_radius).min(image.width as f64 - 1.0) as usize;
-        let y_start = (spot.grid_y - search_radius).max(0.0) as usize;
-        let y_end = (spot.grid_y + search_radius).min(image.height as f64 - 1.0) as usize;
+        let row_start = (spot.grid_x - search_radius).max(0.0) as usize;
+        let row_end = (spot.grid_x + search_radius).min(image.height as f64 - 1.0) as usize;
+        let col_start = (spot.grid_y - search_radius).max(0.0) as usize;
+        let col_end = (spot.grid_y + search_radius).min(image.width as f64 - 1.0) as usize;
 
         // Find local maximum (spot center)
         let mut max_val = f64::NEG_INFINITY;
         let mut max_pos = (spot.grid_x, spot.grid_y);
 
-        for y in y_start..=y_end {
-            for x in x_start..=x_end {
-                let val = normalized[[y, x]];
+        for row in row_start..=row_end {
+            for col in col_start..=col_end {
+                let val = normalized[[row, col]];
                 if val > max_val {
                     max_val = val;
-                    max_pos = (x as f64, y as f64);
+                    max_pos = (row as f64, col as f64);
                 }
             }
         }
@@ -587,8 +646,9 @@ pub fn process_gridding(
         layout,
     );
 
-    // Refine grid positions based on actual spot locations
-    refine_grid_positions(grid_image, &mut spots, params)?;
+    // Note: MATLAB does not do per-spot local-maximum refinement.
+    // It uses global FFT correlation + optional image registration for center/rotation,
+    // then pitch refinement happens inside segmentation (segment_and_refine).
 
     Ok(spots)
 }

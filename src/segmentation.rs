@@ -175,9 +175,7 @@ fn compute_global_edge_map(
     };
 
     // Apply Canny edge detection ONCE globally (MATLAB line 38)
-    // MATLAB's default Canny sigma is sqrt(2) ≈ 1.414. Our Gaussian+Sobel pipeline
-    // applies extra [1,2,1] smoothing from Sobel on top of the Gaussian, so we use
-    // sigma=sqrt(2) to approximate MATLAB's derivative-of-Gaussian(sqrt(2)).
+    // Uses derivative-of-Gaussian kernels matching MATLAB's edge('canny') with sigma=sqrt(2).
     let sigma = std::f64::consts::SQRT_2;
     let edges = canny_edge_detection_auto(&roi, params.edge_sensitivity, sigma)?;
 
@@ -259,6 +257,11 @@ fn segment_by_edge_global(
         if edge_pixels.len() >= params.min_edge_pixels {
             spot_found = true;
         } else {
+            tracing::debug!(
+                "Spot '{}' at ({:.1},{:.1}): too few edge pixels {} < {} in window x=[{},{}] y=[{},{}]",
+                spot.id, cx, cy, edge_pixels.len(), params.min_edge_pixels,
+                x_init.0, x_init.1, y_init.0, y_init.1
+            );
             spot_found = false;
             break;
         }
@@ -266,7 +269,13 @@ fn segment_by_edge_global(
         // Fit circle to edge pixels (MATLAB line 120)
         let circle = match fit_circle_robust(&edge_pixels) {
             Some(c) => c,
-            None => break,
+            None => {
+                tracing::debug!(
+                    "Spot '{}' at ({:.1},{:.1}): circle fit failed with {} edge pixels",
+                    spot.id, cx, cy, edge_pixels.len()
+                );
+                break;
+            }
         };
 
         // Calculate convergence and offset BEFORE updating midpoint (MATLAB lines 125-131)
@@ -646,6 +655,65 @@ fn compute_array_midpoint(spots: &[Spot], spot_pitch: f64) -> (f64, f64) {
     }
 }
 
+/// Compute array midpoint using absolute row/col values.
+/// Used for reference spots which have negative row/col indices.
+/// Matches MATLAB pg_mid_point.m with `row = abs(params.grdRow)`.
+/// Returns None if no good spots to compute midpoint from.
+fn compute_midpoint_abs(spots: &[Spot], spot_pitch: f64) -> Option<(f64, f64)> {
+    if spots.is_empty() {
+        return None;
+    }
+
+    // rmp/cmp from ALL spots using abs(row), abs(col) — matches MATLAB
+    let mut row_min = f64::INFINITY;
+    let mut row_max = f64::NEG_INFINITY;
+    let mut col_min = f64::INFINITY;
+    let mut col_max = f64::NEG_INFINITY;
+
+    for spot in spots {
+        let r = (spot.row as f64).abs();
+        let c = (spot.col as f64).abs();
+        row_min = row_min.min(r);
+        row_max = row_max.max(r);
+        col_min = col_min.min(c);
+        col_max = col_max.max(c);
+    }
+
+    let rmp = row_min + (row_max - row_min) / 2.0;
+    let cmp = col_min + (col_max - col_min) / 2.0;
+
+    // Midpoint estimates from good spots only
+    let mut sum_x = 0.0;
+    let mut sum_y = 0.0;
+    let mut count = 0;
+
+    for spot in spots {
+        if spot.is_bad || spot.is_empty || !spot.is_found {
+            continue;
+        }
+
+        let r = (spot.row as f64).abs();
+        let c = (spot.col as f64).abs();
+
+        // MATLAB: mp_x = -1 + (xPos - pitch*xOffset) + (rmp - row) * pitch
+        // Rust (0-based): omit -1 since grid_coordinates also omits +1
+        let mp_x = (spot.grid_x - spot_pitch * spot.x_offset) + (rmp - r) * spot_pitch;
+        let mp_y = (spot.grid_y - spot_pitch * spot.y_offset) + (cmp - c) * spot_pitch;
+
+        if mp_x.is_finite() && mp_y.is_finite() {
+            sum_x += mp_x;
+            sum_y += mp_y;
+            count += 1;
+        }
+    }
+
+    if count > 0 {
+        Some((sum_x / count as f64, sum_y / count as f64))
+    } else {
+        None
+    }
+}
+
 /// Recompute grid positions with refined pitch and midpoint
 /// Only updates regular (positive row/col), non-fixed spots.
 /// Reference spots (negative indices) keep their positions since they were
@@ -791,6 +859,11 @@ fn check_segmentation(spots: &[Spot], params: &GridParams) -> Vec<u8> {
             if in_bounds || spot_didnt_move {
                 0 // good
             } else {
+                tracing::debug!(
+                    "Spot '{}' flagged BAD: rel_diam={:.3} [{:.3},{:.3}], offset={:.3} max={:.3}, pos=({:.1},{:.1}) initial=({:.1},{:.1})",
+                    spot.id, relative_diameter, params.min_diameter, params.max_diameter,
+                    offset, max_offset, spot.grid_x, spot.grid_y, spot.initial_x, spot.initial_y
+                );
                 1 // bad
             }
         } else {
@@ -834,7 +907,8 @@ pub fn segment_spots(
     let max_iter = 2;
     let max_delta = 0.3;
     let mut working_params = params.clone();
-    let rotation = params.rotation_range.first().copied().unwrap_or(0.0);
+    // Use detected rotation from gridding (stored in spots), not first element of search range
+    let rotation = spots.first().map(|s| s.rotation).unwrap_or(0.0);
     let mut flags = vec![2u8; spots.len()];
 
     // Save detected state after each segmentation (MATLAB: spots.finalMidpoint is separate from x,y)
@@ -964,6 +1038,10 @@ pub fn segment_spots(
                 bg_offset_px,
             );
             if snr < params.min_snr {
+                tracing::debug!(
+                    "Spot '{}' SNR rejected: snr={:.3} < min_snr={:.3}, pos=({:.1},{:.1}) diam={:.1}",
+                    spot.id, snr, params.min_snr, spot.grid_x, spot.grid_y, spot.diameter
+                );
                 set_as_default_spot(spot, working_params.spot_pitch);
                 spot.is_empty = true;
                 snr_rejected += 1;
@@ -1027,8 +1105,22 @@ pub fn segment_image(
         ref_good_count, ref_spots.len()
     );
 
-    // === Pass 2: Segment substrate spots ===
+    // === Reposition substrates using ref midpoint (matches MATLAB pg_grd_coordinates) ===
     let mut sub_spots: Vec<Spot> = sub_indices.iter().map(|&i| spots[i].clone()).collect();
+
+    if let Some(mp_refs) = compute_midpoint_abs(&ref_spots, params.spot_pitch) {
+        tracing::info!(
+            "Ref midpoint: ({:.2}, {:.2}), repositioning {} subs",
+            mp_refs.0, mp_refs.1, sub_spots.len()
+        );
+        // Use detected rotation from gridding (stored in spots), not first element of search range
+        let rotation = sub_spots.first().map(|s| s.rotation).unwrap_or(0.0);
+        recompute_grid_positions(&mut sub_spots, mp_refs, params.spot_pitch, rotation);
+    } else {
+        tracing::info!("No good ref spots for midpoint, skipping sub repositioning");
+    }
+
+    // === Pass 2: Segment substrate spots ===
     segment_spots(image, &mut sub_spots, params)?;
 
     // Copy sub results back

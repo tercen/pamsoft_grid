@@ -96,6 +96,10 @@ pub struct GridParams {
     pub large_disk: f64,
     /// Small disk size for preprocessing (relative) - MATLAB: prpSmallDisk = 0.17
     pub small_disk: f64,
+
+    // Gridding preprocessing
+    /// Target image size for template correlation (MATLAB resizes to 256x256)
+    pub grid_image_size: (usize, usize),
 }
 
 impl Default for GridParams {
@@ -130,6 +134,9 @@ impl Default for GridParams {
             // Preprocessing parameters
             large_disk: 0.51,
             small_disk: 0.17,
+
+            // Gridding preprocessing
+            grid_image_size: (256, 256),
         }
     }
 }

@@ -617,6 +617,47 @@ fn mat_u8_to_array_bool(mat: &Mat) -> Result<Array2<bool>> {
     Ok(array)
 }
 
+/// Compute MATLAB-compatible derivative-of-Gaussian kernels for Canny edge detection.
+///
+/// Returns `(gau, dgau)` where:
+/// - `gau`: normalized 1D Gaussian kernel
+/// - `dgau`: unnormalized first derivative of Gaussian
+///
+/// Matches MATLAB `edge.m` kernel construction:
+/// ```matlab
+/// t = -width:width;
+/// gau  = exp(-t.^2 / (2*ssq)) / (sqrt(2*pi)*sigma);
+/// dgau = (-t / ssq) .* exp(-t.^2 / (2*ssq));
+/// ```
+#[cfg(feature = "opencv")]
+fn compute_dog_kernels(sigma: f64) -> (Vec<f32>, Vec<f32>) {
+    let ssq = sigma * sigma;
+
+    // Half-width: largest w where exp(-w²/(2σ²)) > 0.0001 (matches MATLAB)
+    let mut width = 1i32;
+    for w in 1..=30 {
+        if (-((w * w) as f64) / (2.0 * ssq)).exp() > 0.0001 {
+            width = w;
+        } else {
+            break;
+        }
+    }
+
+    let len = (2 * width + 1) as usize;
+    let mut gau = Vec::with_capacity(len);
+    let mut dgau = Vec::with_capacity(len);
+    let norm = (2.0 * std::f64::consts::PI).sqrt() * sigma;
+
+    for i in 0..len as i32 {
+        let t = (i - width) as f64;
+        let g = (-t * t / (2.0 * ssq)).exp();
+        gau.push((g / norm) as f32);
+        dgau.push(((-t / ssq) * g) as f32);
+    }
+
+    (gau, dgau)
+}
+
 /// Apply Gaussian smoothing using OpenCV (10x faster than pure Rust)
 #[cfg(feature = "opencv")]
 pub fn gaussian_blur_opencv(data: &Array2<f64>, sigma: f64) -> Result<Array2<f64>> {
@@ -765,6 +806,107 @@ pub fn canny_edge_detection_float(
     // Step 8: Hysteresis thresholding with absolute thresholds
     // For [0,1] input, thresholds may be < 1.0 which hysteresis would rescale.
     // Convert to fractions of max_suppressed to match hysteresis's auto-scaling.
+    let max_suppressed = suppressed.iter().cloned().fold(0.0_f64, f64::max);
+    if max_suppressed < 1e-10 {
+        return Ok(Array2::default(image.dim()));
+    }
+    let high_frac = high_threshold / max_suppressed;
+    let low_frac = low_threshold / max_suppressed;
+    Ok(hysteresis_thresholding(&suppressed, low_frac, high_frac))
+}
+
+/// Canny edge detection using derivative-of-Gaussian kernels (matching MATLAB's `edge('canny')`).
+///
+/// Replaces Gaussian blur + Sobel with separable DoG convolution via `sep_filter_2d`.
+/// MATLAB computes gradients as:
+///   grad_x = conv2(gau', dgau, image)  (derivative along rows, smooth along cols)
+///   grad_y = conv2(dgau', gau, image)  (derivative along cols, smooth along rows)
+///
+/// The rest of the pipeline (L2 magnitude, interpolated NMS, hysteresis) is unchanged.
+#[cfg(feature = "opencv")]
+pub fn canny_edge_detection_dog(
+    image: &Array2<f64>,
+    sensitivity: [f64; 2],
+    sigma: f64,
+) -> Result<Array2<bool>> {
+    let (gau, dgau) = compute_dog_kernels(sigma);
+
+    // Create 1D OpenCV Mat kernels from slices
+    let gau_mat = Mat::from_slice(&gau)
+        .map_err(|e| Error::ProcessingError(format!("Failed to create gau kernel: {}", e)))?;
+    let dgau_mat = Mat::from_slice(&dgau)
+        .map_err(|e| Error::ProcessingError(format!("Failed to create dgau kernel: {}", e)))?;
+
+    // Reshape to row vectors (1 x ksize) for sep_filter_2d
+    let gau_row = gau_mat.reshape(1, 1)
+        .map_err(|e| Error::ProcessingError(format!("Failed to reshape gau: {}", e)))?;
+    let dgau_row = dgau_mat.reshape(1, 1)
+        .map_err(|e| Error::ProcessingError(format!("Failed to reshape dgau: {}", e)))?;
+
+    let mat = array_to_mat_f32(image)?;
+
+    // sep_filter_2d(kernelX, kernelY): kernelX applied to each row (horizontal), kernelY to each column (vertical)
+    //
+    // grad_x = horizontal gradient (dI/dx): differentiate horizontally (kernelX=dgau), smooth vertically (kernelY=gau)
+    // Matches MATLAB's ax = conv2(gau', dgau, image) [smooth cols then derivative rows]
+    // Note: conv2 flips kernels (convolution) but dgau is anti-symmetric → negated. Both components
+    // get the same sign flip, so magnitude and NMS octant selection (sign of gx*gy) are unaffected.
+    let mut grad_x_mat = Mat::default();
+    imgproc::sep_filter_2d(
+        &mat,
+        &mut grad_x_mat,
+        CV_32F,
+        &dgau_row,  // derivative along rows (horizontal gradient)
+        &gau_row,   // smooth along columns (vertical smoothing)
+        core::Point::new(-1, -1),
+        0.0,
+        core::BORDER_REPLICATE,
+    ).map_err(|e| Error::ProcessingError(format!("sep_filter_2d grad_x failed: {}", e)))?;
+
+    // grad_y = vertical gradient (dI/dy): smooth horizontally (kernelX=gau), differentiate vertically (kernelY=dgau)
+    // Matches MATLAB's ay = conv2(dgau', gau, image) [derivative cols then smooth rows]
+    let mut grad_y_mat = Mat::default();
+    imgproc::sep_filter_2d(
+        &mat,
+        &mut grad_y_mat,
+        CV_32F,
+        &gau_row,   // smooth along rows (horizontal smoothing)
+        &dgau_row,  // derivative along columns (vertical gradient)
+        core::Point::new(-1, -1),
+        0.0,
+        core::BORDER_REPLICATE,
+    ).map_err(|e| Error::ProcessingError(format!("sep_filter_2d grad_y failed: {}", e)))?;
+
+    // Convert gradients to Array2<f64>
+    let grad_x = mat_to_array_f64(&grad_x_mat)?;
+    let grad_y = mat_to_array_f64(&grad_y_mat)?;
+
+    // L2 gradient magnitude
+    let (height, width) = grad_x.dim();
+    let mut magnitude = Array2::<f64>::zeros((height, width));
+    for y in 0..height {
+        for x in 0..width {
+            magnitude[[y, x]] = grad_x[[y, x]].hypot(grad_y[[y, x]]);
+        }
+    }
+
+    // MATLAB-compatible thresholds: sensitivity * max(mag)
+    let max_mag = magnitude.iter().cloned().fold(0.0_f64, f64::max);
+    if max_mag < 1e-10 {
+        return Ok(Array2::default(image.dim()));
+    }
+    let high_threshold = sensitivity[1] * max_mag;
+    let low_threshold = if sensitivity[0] > 0.0 {
+        sensitivity[0] * max_mag
+    } else {
+        0.4 * high_threshold
+    };
+
+    // Non-maximum suppression (interpolated, matching MATLAB)
+    let direction = Array2::<f64>::zeros((height, width));
+    let suppressed = non_maximum_suppression(&magnitude, &direction, &grad_x, &grad_y);
+
+    // Hysteresis thresholding
     let max_suppressed = suppressed.iter().cloned().fold(0.0_f64, f64::max);
     if max_suppressed < 1e-10 {
         return Ok(Array2::default(image.dim()));
@@ -1056,6 +1198,130 @@ pub fn rescale_image_opencv(
     Ok(ImageData::new(scaled, image.name.clone()))
 }
 
+/// Resize a normalized f64 image to exact target dimensions using OpenCV bilinear interpolation.
+/// Used for gridding preprocessing (MATLAB resizes to 256x256 before template correlation).
+#[cfg(feature = "opencv")]
+pub fn resize_f64_to_size(
+    image: &Array2<f64>,
+    target_rows: usize,
+    target_cols: usize,
+) -> Result<Array2<f64>> {
+    let mat = array_to_mat_f32(image)?;
+
+    let mut dst = Mat::default();
+    imgproc::resize(
+        &mat,
+        &mut dst,
+        core::Size::new(target_cols as i32, target_rows as i32),
+        0.0,
+        0.0,
+        imgproc::INTER_LINEAR,
+    ).map_err(|e| Error::ProcessingError(format!("Resize failed: {}", e)))?;
+
+    mat_to_array_f64(&dst)
+}
+
+#[cfg(not(feature = "opencv"))]
+pub fn resize_f64_to_size(
+    image: &Array2<f64>,
+    target_rows: usize,
+    target_cols: usize,
+) -> Result<Array2<f64>> {
+    let (src_rows, src_cols) = image.dim();
+    let mut result = Array2::<f64>::zeros((target_rows, target_cols));
+
+    for r in 0..target_rows {
+        for c in 0..target_cols {
+            let src_r = (r as f64 / target_rows as f64 * src_rows as f64).min((src_rows - 1) as f64);
+            let src_c = (c as f64 / target_cols as f64 * src_cols as f64).min((src_cols - 1) as f64);
+            let r0 = src_r.floor() as usize;
+            let c0 = src_c.floor() as usize;
+            let r1 = (r0 + 1).min(src_rows - 1);
+            let c1 = (c0 + 1).min(src_cols - 1);
+            let fr = src_r - r0 as f64;
+            let fc = src_c - c0 as f64;
+            result[[r, c]] = (1.0 - fr) * (1.0 - fc) * image[[r0, c0]]
+                + (1.0 - fr) * fc * image[[r0, c1]]
+                + fr * (1.0 - fc) * image[[r1, c0]]
+                + fr * fc * image[[r1, c1]];
+        }
+    }
+
+    Ok(result)
+}
+
+/// Preprocess image for gridding, matching MATLAB's pg_pp_fun.m pipeline.
+///
+/// Steps:
+/// 1. Morphological opening with small disk (remove small artifacts)
+/// 2. Tophat filter with large disk (remove background)
+/// 3. Circular ROI mask (zero out corners)
+/// 4. Contrast enhancement (imadjust + histeq approximation)
+pub fn preprocess_for_gridding(
+    image: &Array2<f64>,
+    small_disk_px: usize,
+    large_disk_px: usize,
+) -> Result<Array2<f64>> {
+    let (rows, cols) = image.dim();
+
+    // Step 1: Morphological opening with small disk
+    let opened = if small_disk_px > 0 {
+        morphological_opening_auto(image, small_disk_px)?
+    } else {
+        image.clone()
+    };
+
+    // Step 2: Tophat filter = image - opening(image, large_disk)
+    let result = if large_disk_px > 0 {
+        let bg = morphological_opening_auto(&opened, large_disk_px)?;
+        let mut tophat = Array2::<f64>::zeros((rows, cols));
+        for r in 0..rows {
+            for c in 0..cols {
+                tophat[[r, c]] = (opened[[r, c]] - bg[[r, c]]).max(0.0);
+            }
+        }
+        tophat
+    } else {
+        opened
+    };
+
+    // Step 3: Circular ROI mask — zero out pixels outside centered circle
+    // MATLAB: diameter = min(rows, cols), i.e. for 256x256 the circle fills the image
+    let center_r = rows as f64 / 2.0;
+    let center_c = cols as f64 / 2.0;
+    let radius = rows.min(cols) as f64 / 2.0;
+    let mut masked = result;
+    for r in 0..rows {
+        for c in 0..cols {
+            let dr = r as f64 - center_r;
+            let dc = c as f64 - center_c;
+            if (dr * dr + dc * dc).sqrt() > radius {
+                masked[[r, c]] = 0.0;
+            }
+        }
+    }
+
+    // Step 4: Contrast enhancement (simplified imadjust — percentile-based stretch to [0,1])
+    // Collect non-zero values for percentile calculation
+    let mut vals: Vec<f64> = masked.iter().filter(|&&v| v > 0.0).cloned().collect();
+    if vals.is_empty() {
+        return Ok(masked);
+    }
+    vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let lo = vals[(vals.len() as f64 * 0.01) as usize];
+    let hi = vals[((vals.len() as f64 * 0.99) as usize).min(vals.len() - 1)];
+    let range = hi - lo;
+    if range > 1e-10 {
+        for v in masked.iter_mut() {
+            if *v > 0.0 {
+                *v = ((*v - lo) / range).clamp(0.0, 1.0);
+            }
+        }
+    }
+
+    Ok(masked)
+}
+
 /// Find connected components in a binary image and return the largest one using OpenCV
 /// More robust than flood-fill, handles edge cases better
 #[cfg(feature = "opencv")]
@@ -1263,7 +1529,7 @@ pub fn canny_edge_detection_auto(
     sensitivity: [f64; 2],
     sigma: f64,
 ) -> Result<Array2<bool>> {
-    canny_edge_detection_float(image, sensitivity, sigma)
+    canny_edge_detection_dog(image, sensitivity, sigma)
 }
 
 #[cfg(not(feature = "opencv"))]

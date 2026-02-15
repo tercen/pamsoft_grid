@@ -47,11 +47,69 @@ fn quantify_single_spot(
     }
 }
 
+/// Remove outliers using IQR-based Tukey fences (matching MATLAB pg_seg_detect_outlier.m)
+/// Values outside [Q1 - measure*IQR, Q3 + measure*IQR] are removed.
+/// Default measure in MATLAB: params.qntOutlierMeasure = 1.75
+fn remove_iqr_outliers(vals: &[f64], measure: f64) -> Vec<f64> {
+    if vals.len() < 4 {
+        return vals.to_vec();
+    }
+
+    let mut sorted = vals.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    // MATLAB quantile([0.25, 0.75]) — use linear interpolation
+    let n = sorted.len();
+    let q1 = interpolate_quantile(&sorted, 0.25);
+    let q3 = interpolate_quantile(&sorted, 0.75);
+    let iqr = q3 - q1;
+
+    let lower = q1 - measure * iqr;
+    let upper = q3 + measure * iqr;
+
+    vals.iter()
+        .copied()
+        .filter(|&v| v >= lower && v <= upper)
+        .collect()
+}
+
+/// Interpolate quantile from sorted data (matches MATLAB quantile function)
+fn interpolate_quantile(sorted: &[f64], p: f64) -> f64 {
+    let n = sorted.len();
+    if n == 0 { return 0.0; }
+    if n == 1 { return sorted[0]; }
+
+    // MATLAB quantile uses (i-0.5)/n for the i-th sorted value
+    let index = p * n as f64 - 0.5;
+    if index <= 0.0 {
+        return sorted[0];
+    }
+    if index >= (n - 1) as f64 {
+        return sorted[n - 1];
+    }
+
+    let lo = index.floor() as usize;
+    let frac = index - lo as f64;
+    sorted[lo] * (1.0 - frac) + sorted[lo + 1] * frac
+}
+
+/// Compute sample standard deviation (N-1 denominator, matching MATLAB std())
+fn sample_std(vals: &[f64]) -> f64 {
+    if vals.len() < 2 {
+        return 0.0;
+    }
+    let mean = vals.iter().sum::<f64>() / vals.len() as f64;
+    let var = vals.iter().map(|&v| (v - mean).powi(2)).sum::<f64>()
+        / (vals.len() - 1) as f64;
+    var.sqrt()
+}
+
 /// Compute SNR for a single spot (matching MATLAB pg_qnt_check_quantification.m)
 ///
 /// Signal: filled circle at (center_x, center_y) with given radius.
 /// Background: square annulus — square of side 2*bg_offset_px centered on spot,
 ///             minus a circle of radius bg_offset_px.
+/// IQR-based outlier removal on both signal and background (MATLAB: pg_seg_detect_outlier)
 /// SNR = (mean_signal - mean_background) / sqrt(std_signal² + std_background²)
 pub fn compute_spot_snr(
     image: &ImageData,
@@ -102,15 +160,22 @@ pub fn compute_spot_snr(
         return 0.0;
     }
 
-    let mean_sig = sig_vals.iter().sum::<f64>() / sig_vals.len() as f64;
-    let mean_bg = bg_vals.iter().sum::<f64>() / bg_vals.len() as f64;
+    // IQR-based outlier removal (MATLAB: pg_seg_detect_outlier with measure=1.75)
+    let sig_clean = remove_iqr_outliers(&sig_vals, 1.75);
+    let bg_clean = remove_iqr_outliers(&bg_vals, 1.75);
 
-    let var_sig = sig_vals.iter().map(|&v| (v - mean_sig).powi(2)).sum::<f64>()
-        / sig_vals.len() as f64;
-    let var_bg = bg_vals.iter().map(|&v| (v - mean_bg).powi(2)).sum::<f64>()
-        / bg_vals.len() as f64;
+    if sig_clean.is_empty() || bg_clean.is_empty() {
+        return 0.0;
+    }
 
-    let denom = (var_sig + var_bg).sqrt();
+    let mean_sig = sig_clean.iter().sum::<f64>() / sig_clean.len() as f64;
+    let mean_bg = bg_clean.iter().sum::<f64>() / bg_clean.len() as f64;
+
+    // Sample std dev (N-1 denominator) matching MATLAB std()
+    let std_sig = sample_std(&sig_clean);
+    let std_bg = sample_std(&bg_clean);
+
+    let denom = (std_sig * std_sig + std_bg * std_bg).sqrt();
     if denom < 1e-15 {
         return 0.0;
     }
